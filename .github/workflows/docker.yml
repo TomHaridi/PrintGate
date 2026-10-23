@@ -1,0 +1,66 @@
+name: docker
+
+# 打 tag（v2.2.0 / v2.2.0-rc1 …）时构建 amd64 + arm64 双架构镜像并推送 Docker Hub
+# 也可以在 Actions 页面手动触发（workflow_dispatch）
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      with_office:
+        description: '内置 LibreOffice（支持 Office 直打，镜像 +50MB）'
+        type: boolean
+        default: false
+
+env:
+  IMAGE: tomdfwe/printgate
+  DOCKERFILE: ./Dockerfile
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          # v2.2.0 -> 2.2.0 + latest；手动触发（无 tag）-> edge
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=edge,enable=${{ github.event_name == 'workflow_dispatch' }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ env.DOCKERFILE }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            CACHEBUST=${{ github.run_id }}
+            WITH_OFFICE=${{ inputs.with_office && '1' || '0' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

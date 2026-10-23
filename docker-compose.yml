@@ -1,0 +1,60 @@
+# 说明：本文件用于「在源码目录本地构建镜像」（build: .）。
+# 只想部署官方镜像，请用 docs/DOCKER-DEPLOY.md 里的 compose 片段（image: tomdfwe/printgate:latest）。
+services:
+  printgate:
+    build:
+      context: .
+      args:
+        NODE_TAG: 22-alpine
+    image: printgate:alpine
+    container_name: printgate
+    restart: unless-stopped
+    # 桥接模式：适合本地测试 / 云服务器中转
+    ports:
+      - "8080:8080"    # 管理台 + API（小程序也连这个端口）
+      - "631:631"      # IPP / AirPrint
+      - "9100:9100"    # 虚拟打印机接收器（不必对外，可删掉）
+    environment:
+      TZ: Asia/Shanghai
+      # 首次启动的默认值，可在管理台「系统设置」中覆盖
+      # MAX_FILE_MB: "200"
+      # APPROVE_EACH_JOB: "false"
+    volumes:
+      - ./data:/data          # 数据库 / 上传文件 / 扫描件 / frp 配置
+      - ./cups:/etc/cups      # 打印机队列持久化（重要，否则重启丢队列）
+    # ── USB 打印机 / USB 扫描仪：放开下面两行的注释 ──
+    # devices:
+    #   - /dev/bus/usb:/dev/bus/usb    # 容器内已装 sane（scanimage），挂载后即可识别 USB 扫描仪
+    # privileged: false                # 一般不需要 privileged；个别机型权限不足时再打开
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+# ── AirPrint 完整可用（推荐在 Linux NAS / 小主机上使用）──
+# network_mode: host 时 mDNS 广播与自动发现最完整，此时无需 ports 段：
+#
+# services:
+#   printgate:
+#     network_mode: host
+#     ...
+#
+# ── USB 打印机 / USB 扫描仪 ──
+#     devices:
+#       - /dev/bus/usb:/dev/bus/usb
+#     （Linux 需要 cups 的 usb backend，容器内已包含；
+#       扫描仪由容器内 sane 提供，挂载后 scanimage -L 就能列出设备）
+#
+# ── 网络扫描仪（AirScan / eSCL，多数网络一体机）──
+#   1. 若已装 sane-airscan：容器内会自动发现同网段设备，无需额外配置；
+#   2. 若设备在另一个网段或需广播发现，改用 network_mode: host（同时删掉 ports 段）；
+#   3. 也可在容器内 /etc/sane.d/airscan.conf 里手写设备地址：
+#        [devices]
+#        MyScanner = http://192.168.1.50/eSCL
+#
+# ── 验证扫描链路 ──
+#   docker exec printgate scanimage --version
+#   docker exec printgate scanimage -L            # 列出设备
+#   docker exec printgate sane-find-scanner       # 只看 USB 层是否可见（排查挂载/权限）

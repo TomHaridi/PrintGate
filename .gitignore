@@ -1,0 +1,19 @@
+node_modules/
+server/public/
+web/dist/
+data/
+cups/
+*.log
+.DS_Store
+
+# ---- 本地运行 / 测试产物（不要提交）----
+_data/
+_data*/
+_logs/
+_logs*/
+_shots/
+drivers-out/
+server/*.db
+server/*.db-*
+*.tar.gz
+.env

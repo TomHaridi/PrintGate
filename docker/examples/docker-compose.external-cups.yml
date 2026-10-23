@@ -1,0 +1,52 @@
+# PrintGate — 连接外部已有 CUPS（本容器只跑 Web / 业务层）
+#
+# 适用：打印机和驱动已经在别的 CUPS 上（NAS、另一台小主机、别的容器），
+#       不想再维护第二套 CUPS 的场景。
+#
+# 用法：
+#   cp docker/examples/docker-compose.external-cups.yml /opt/printgate/docker-compose.yml
+#   # 把 CUPS_SERVER 改成容器可达的地址，再 docker compose up -d
+#
+# 注意：
+#   1) CUPS_SERVER 里不能写 localhost —— 那指向容器自己；
+#      同宿主的 CUPS 用 host.docker.internal 或宿主内网 IP。
+#   2) 外部 CUPS 里的队列必须设为 Shared（共享），否则本服务看不到。
+#   3) 驱动安装、USB 挂载、AirPrint 广播都由外部 CUPS 负责，本容器不需要 devices / privileged。
+services:
+  printgate:
+    image: tomdfwe/printgate:latest
+    container_name: printgate
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"   # 管理台 / API / 小程序接口
+      # 631 不映射：IPP/AirPrint 由外部 CUPS 提供
+
+    extra_hosts:
+      # Linux 下访问宿主服务用 host.docker.internal
+      - "host.docker.internal:host-gateway"
+
+    environment:
+      TZ: Asia/Shanghai
+      # 外部 CUPS 地址（示例，按实际情况改）
+      CUPS_SERVER: "192.168.1.50:631"
+      # 若外部 CUPS 需要认证，用「系统设置 → CUPS 服务地址」不方便带凭据时，
+      # 先在外部 CUPS 上放开对本容器 IP 的 Allow，避免 401。
+      # TRUST_PROXY: "true"
+
+    volumes:
+      - ./data:/data      # 业务数据（用户/任务/上传件）
+      # 不再挂 /etc/cups —— 队列在外部 CUPS 上
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

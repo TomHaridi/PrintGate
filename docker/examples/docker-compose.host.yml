@@ -1,0 +1,47 @@
+# PrintGate — host 网络 + USB 打印机（AirPrint 完整可用）
+#
+# 用法：
+#   cp docker/examples/docker-compose.host.yml /opt/printgate/docker-compose.yml
+#   cd /opt/printgate && docker compose up -d
+#
+# 为什么用 host 网络：
+#   mDNS/DNS-SD 依赖局域网组播，桥接模式下 AirPrint 广播不出去、也发现不了网络打印机。
+#   host 模式下 Web 直接监听宿主 8080，cupsd 直接占用宿主 631，因此不要再写 ports。
+services:
+  printgate:
+    image: tomdfwe/printgate:latest
+    container_name: printgate
+    restart: unless-stopped
+    network_mode: host
+
+    environment:
+      TZ: Asia/Shanghai
+      # 首次启动默认值，之后都在「系统设置」里改
+      # MAX_FILE_MB: "200"
+      # APPROVE_NEW_USER: "true"
+      # ENABLE_USER_REGISTER: "true"
+
+    volumes:
+      - ./data:/data          # 数据库 / 上传件 / 扫描件 / 头像 / frp 配置
+      - ./cups:/etc/cups      # 打印队列，必须持久化
+
+    # ── USB 打印机 / USB 扫描仪 ──
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      - 'c 189:* rmw'
+    # 少数 ARM / 嵌入式平台 libusb 需要完整 sysfs 才能枚举设备，才打开这行（能用就别开）
+    # privileged: true
+
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
