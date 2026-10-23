@@ -26,10 +26,6 @@
 | 角色 | 管理员进管理台，普通用户进独立打印门户 | 普通用户会话碰不到任何管理接口 |
 | 中转 | 后台可视化配置 frp，五步向导 + 在线自检 | 不手写 frpc 配置，公网接入前先验证连通 |
 
-![运行概览](docs/screenshots/admin-dashboard.png)
-
-*运行概览：今日任务、累计完成、在线打印机，右侧是服务健康清单，标黄项点「去配置」直达对应页面。*
-
 ---
 
 ## 2. 功能一览（管理台）
@@ -70,19 +66,11 @@
 - **系统状态**：版本、运行时长、内存/磁盘/负载、服务进程重启、数据占用、数据库备份。
 - **系统设置**：打印默认值与限额、审批策略、安全（锁定阈值/会话时长/扫码登录/开发模式）、小程序、frp、数据保留与清理。
 
-![发起打印](docs/screenshots/print-workspace.png)
-
-*发起打印：四种模式一页切换，左栏全部打印参数，右栏实时预览、最近记录与打印机状态（墨量/纸盒）。*
-
-> 逐项配置步骤见 **[docs/CONFIG-GUIDE.md](docs/CONFIG-GUIDE.md)**。
-
 ---
 
 ## 3. 快速开始
 
-> 需要更细的部署说明（Compose/USB/AirPrint/**Nginx/Caddy/群晖反代**/**小程序三类合法域名**/备份恢复/升级回滚/排障）见
-> **[docs/DEPLOY-GUIDE.md](docs/DEPLOY-GUIDE.md)**；打印机、小程序、中转的逐项配置见
-> **[docs/CONFIG-GUIDE.md](docs/CONFIG-GUIDE.md)**。本章只列最短路径。
+> 本章只列最短路径。打印机与驱动、小程序对接、公网中转、系统设置的逐项说明见第 2、4、6、8 节。
 >
 > 已发布镜像（仅 arm64）：`docker.io/tomdfwe/printgate:latest`
 > ```bash
@@ -152,14 +140,6 @@ cd ../server && PG_DATA_DIR=../_data PORT=8080 node src/index.js
 6. 如需公网访问：打开「中转对接」按向导走五步（推荐单端口 443），复制片段到云服务器 → 自检通过 → 保存并启用
    （自动生成 `/data/frp/frpc.toml` 并重启客户端，详见第 8 节）。
 
-![小程序对接](docs/screenshots/mp-integration.png)
-
-*小程序对接：AppID / AppSecret / 接入地址 / 管理员白名单与三项策略集中一页，右栏是绑定二维码与接入进度，底部同屏接口文档。*
-
-![小程序用户](docs/screenshots/mp-users.png)
-
-*小程序用户：按待审批 / 已授权 / 已拒绝 / 已拉黑分页签，可授权、拉黑、提权为管理员。*
-
 ---
 
 ## 5. 打印链路
@@ -190,10 +170,6 @@ CUPS（容器内 cupsd）
 2. **CUPS 设备枚举**：`lpinfo -v`（dnssd://、ipp://、usb://）；
 3. **网段主动探测**：并发探测 631(IPP)、9100(RAW)，深度模式额外探测 443(IPPS)、515(LPD)，
    并对 631/443 做真实 `Get-Printer-Attributes` 握手。
-
-![自动扫描打印机](docs/screenshots/printer-scan.png)
-
-*自动扫描：「扫描范围」填真实局域网网段；扫到的设备带识别结果列出，可批量添加。*
 
 握手带来三个实际好处（也是「扫到了却用不了」的根因）：
 
@@ -226,14 +202,6 @@ CUPS（容器内 cupsd）
 - **上传 / 直链**：上传 `.ppd` / `.ppd.gz` / `.tar.gz` / `.zip`（自动解包找 PPD），或填 PPD 直链下载。
   下载有大小上限、超时、跳转次数限制，并默认拒绝内网地址（SSRF 防护，可用
   `PG_ALLOW_PRIVATE_DRIVER_URL=1` 放开）。
-
-![选择驱动 · 推荐](docs/screenshots/driver-recommend.png)
-
-*推荐页签：设备有 IPP 服务时优先 `IPP Everywhere` 免驱；建不起队列可一键「生成免驱 PPD」。*
-
-![选择驱动 · 本地驱动库](docs/screenshots/driver-library.png)
-
-*本地驱动库：`lpinfo -m` 全量列表 + 已导入的 PPD，可按型号搜索；`everywhere` 与 `raw` 恒在最前。*
 
 导入的驱动统一存放在数据卷 `drivers/` 下，可在驱动库里删除。
 
@@ -274,10 +242,6 @@ docker exec printgate scanimage -L            # SANE 认到的设备（查驱动
 链路：`小程序 → 云:443(nginx) → frps:7000 → frpc(N1) → PrintGate:8080 → 内网打印机`。
 打印机的 631 / 9100 全程不暴露（容器出站访问）。
 
-![中转对接](docs/screenshots/relay-wizard.png)
-
-*中转对接：五步向导（出网模式 → 公网地址 → frps → nginx 片段 → 自检），下方实时显示当前环境与 frpc 配置路径。*
-
 「中转对接」向导选「单端口 443」后，按提示填域名 / 服务端 / Token，页面会生成三段配置：
 
 1. **frps.toml**（云服务器）
@@ -312,8 +276,7 @@ BASE 是否为 https 域名、以及从公网地址回连 `/api/health`。全绿
 - **防爆破**：登录失败按 IP 计数入库，达阈值（默认 5 次）锁定（默认 15 分钟），返回剩余次数；
   绑定码、二维码轮询、扫码确认、API Key 各自独立限流；全局 `/api` 每分钟 900 次上限。
 - **绑定码**：32 位 hex（128 bit 随机）、定时安全比较、**一码一人 + 默认 10 分钟 TTL**，
-  绑定成功或到期即换新；全站 30 分钟内失败 50 次强制换码。评估与实测见
-  [SECURITY-BIND-CODE](docs/SECURITY-BIND-CODE.md)。
+  绑定成功或到期即换新；全站 30 分钟内失败 50 次强制换码。
 - **转发头**：`TRUST_PROXY=true` 只在请求确实来自本机/内网反代时采信 `X-Forwarded-For`，
   公网直连场景自动忽略该头，避免伪造 IP 绕过锁定与限流。
 - **角色隔离**：扫码登录按角色签发不同会话——管理员 `scope=admin`，普通用户 `scope=miniapp`。
@@ -334,10 +297,6 @@ BASE 是否为 https 域名、以及从公网地址回连 `/api/health`。全绿
 - **真实客户端 IP**：默认只认连接对端地址，`X-Forwarded-For` 一律忽略——否则伪造该头就能绕过登录锁定与限流。
   若部署在 Nginx/Caddy 等可信反代之后，给容器加 `TRUST_PROXY=true`，此时取 XFF 最后一跳作为客户端 IP
   （务必让反代覆盖或追加该头，不要把应用直接暴露在公网又开启此开关）。
-
-![系统设置 · 安全](docs/screenshots/settings-security.png)
-
-*系统设置：登录失败阈值与锁定时长、三种登录方式开关、在线改密，下方是登录失败记录与一键解锁。*
 
 > 说明：容器内 `cupsd` 需要 root 才能监听 631 并管理队列，PrintGate 与 CUPS 同容器运行，
 > 因此进程以 root 启动；应用侧所有外部命令均通过 `execFile` 参数数组调用、不经 shell，
@@ -372,7 +331,6 @@ printgate/
 ├─ docker/
 │  ├─ entrypoint.sh           CUPS + Avahi + PrintGate + frp 守护
 │  └─ cupsd.conf              A4/AirPrint 修复、最小暴露面
-├─ miniprogram/               微信小程序（Vant Weapp）
 ├─ server/                    Node.js 服务（Express + better-sqlite3）
 │  ├─ src/
 │  │  ├─ index.js  config.js  db.js  security.js  middleware.js
@@ -384,8 +342,6 @@ printgate/
 │  │               system cups drivers relay wechat apikeys
 │  └─ public/                 前端构建产物（vite 输出）
 ├─ tools/                     运维与自检脚本
-├─ docs/                      部署、配置与安全文档
-├─ 小程序预览/                小程序页面预览图
 └─ web/                       Vue3 + NaiveUI + Vite
    └─ src/  views/  layouts/  components/  api.js  router.js  store.js
 ```
