@@ -7,7 +7,6 @@ const config = require('./config');
 const { cfg, setSetting, getSetting } = require('./db');
 const sec = require('./security');
 const system = require('./system');
-const { migrateLegacy } = require('./migrate');
 const cleanup = require('./cleanup');
 const vprinter = require('./vprinter');
 
@@ -34,7 +33,6 @@ app.use((req, res, next) => {
 });
 
 // ---------- 启动初始化 ----------
-migrateLegacy();
 // 首次启动生成绑定码（带 TTL），保证「小程序扫码绑定管理员」开箱可用
 sec.bindTokenInfo();
 try { vprinter.autoStart(); } catch (e) { console.warn('[vprinter] 启动失败:', e.message); }

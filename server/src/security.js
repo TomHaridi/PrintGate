@@ -34,7 +34,7 @@ function verifyPassword(plain, stored) {
   }
 }
 
-// 老版本明文密码（迁移自 remote-print.db / ADMIN_PASSWORD）→ 首次登录后升级为 scrypt
+// 明文口令（如 ADMIN_PASSWORD 环境变量初始化）→ 首次登录后升级为 scrypt
 function passwordMatches(plain, stored) {
   if (!stored) return false;
   if (String(stored).startsWith('scrypt$')) return verifyPassword(plain, stored);
