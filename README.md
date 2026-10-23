@@ -1,28 +1,23 @@
 # PrintGate
 
-> CUPS 打印网关 + 微信小程序远程打印 + Vue3 管理台，Alpine 精简镜像。
-> 本项目由旧版 `printbridge`（CUPS + cups-web 二进制 + 中转服务，镜像 2.79 GB）重构而来，
-> 界面与后台全部重写，镜像体积与攻击面同时大幅收缩。
+> CUPS 打印网关 + 微信小程序远程打印 + Vue3 管理台。
+> Alpine 单容器自带 CUPS、Avahi 与 frp 守护，一条 `docker run` 跑通「小程序/网页上传 → CUPS 队列 → 打印机出纸」。
 
 ---
 
-## 1. 这次重构做了什么
+## 1. 设计要点
 
-| 项目 | 旧版 printbridge | PrintGate |
+| 维度 | 做法 | 效果 |
 | --- | --- | --- |
-| 基础镜像 | Debian + LibreOffice + 自编译 cups-web 二进制 + ofd 转换器 | Alpine 3.20（约 570 MB，含中文字体与 qpdf） |
-| Web 界面 | cups-web 内嵌 Go/Vue 混合页 + 中转服务的原生 HTML 后台（两套） | **单套 Vue3 + NaiveUI 管理台**，15 个功能页 |
-| 管理入口 | cups-web（1180）+ 中转服务（3100）两个端口、两套登录 | 一个端口（8080）统一登录、统一权限 |
-| 「小程序对接 / 中转对接」按钮 | 指向 `window.open("#wechat")` / `window.open("#config")`，未配置跳转地址 → 打开空白页（**本次已修复**） | 真实路由页面：`#/wechat`、`#/relay` |
-| 管理员密码 | 明文存数据库 / 环境变量 `ADMIN_PASSWORD` | 首次部署向导设置，scrypt 加盐散列，可改密 |
-| 防爆破 | 仅绑定码有内存计数，重启清零 | 登录 / 绑定码 / 二维码 全链路限流 + 持久化锁定 + 审计 |
-| 打印机发现 | cups-web 内置逻辑，失效 | mDNS(Avahi) + CUPS 设备枚举 + 网段 IPP/RAW 并发探测 |
-| 打印参数 | 十余项但前端交互分散 | 份数/色彩/单双面/纸张/方向/缩放/页码/多页合并/自定义参数 |
-| 微信能力 | 仅 code2session 登录 + 扫码绑定 | 登录、扫码绑定管理员、**网页扫码登录**、用户审批/拉黑/提权 |
-| 登录方式 | 只有管理员密码 | 管理员密码（可一键关闭）+ 微信扫码；扫码后按角色分流：管理员进管理台、普通用户进打印门户 |
-| 普通用户网页 | 无 | 独立打印门户：上传打印、查看自己的记录、一键清空历史；进不了任何管理接口 |
-| 用户资料 | 小程序里多个「微信用户」无法区分 | 登录后引导用微信头像+昵称补全（头像昵称填写能力），后台网页/小程序列表均按头像+昵称展示 |
-| 中转 | 手写 frpc 配置 + 环境变量 | 后台可视化配置 frp、在线测试连通性、API Key 开放接口 |
+| 镜像 | Alpine 单容器内含 CUPS + Avahi + 服务端 + frp 守护，约 570 MB（含中文字体与 qpdf） | 不依赖外部 CUPS 主机，一条命令起全链路 |
+| 界面 | 单套 Vue3 + NaiveUI 管理台，15 个功能页 | 只维护一套前端，功能页之间不跳转 |
+| 入口 | 只对外暴露 8080，统一登录与权限 | 631 仅在内网用于打印，管理操作全部走应用 |
+| 口令 | 首次部署向导设置，`scrypt(N=16384,r=8,p=1)` + 16 字节随机盐 | 不内置默认口令，可在线改密 |
+| 防护 | 登录 / 绑定码 / 二维码轮询 / API Key 各自限流，失败计数落库 | 重启不清零，锁定与限流不可绕过 |
+| 打印机发现 | mDNS + CUPS 设备枚举 + 网段 IPP/RAW 并发探测 | 扫到的设备可直接添加，型号与资源路径自动校准 |
+| 微信能力 | code2session 登录、扫码绑定管理员、网页扫码登录、用户审批/拉黑/提权 | 管理员与普通用户按角色分流 |
+| 角色 | 管理员进管理台，普通用户进独立打印门户 | 普通用户会话碰不到任何管理接口 |
+| 中转 | 后台可视化配置 frp，五步向导 + 在线自检 | 不手写 frpc 配置，公网接入前先验证连通 |
 
 ---
 
@@ -50,11 +45,11 @@
 - **小程序用户**：待审批/已授权/已拒绝/已拉黑、授权、拉黑、提权为管理员、备注、删除。
 - **小程序对接**：**接入参数的唯一维护入口** —— AppID、AppSecret、接入地址（BASE）、管理员 OpenID 白名单、
   三项策略开关（新用户审批 / 扫码登录 / 开发模式）集中一页；右栏常驻绑定二维码与接入进度，底部同屏接口文档。
-  「系统设置」与「中转对接」只做状态展示并跳转，不再重复填写，避免两处保存互相覆盖。
+  「系统设置」与「中转对接」只做状态展示并跳转，不重复填写，避免两处保存互相覆盖。
 - **中转对接**：**五步向导**（模式 → 域名/BASE → 云服务器 frps → nginx 片段 → 自检），自动生成 frps.toml / nginx 配置 / frpc.toml，
   支持「单端口 443（wss 复用，推荐）」与「独立端口 TCP」两种模式；自检会实跑 frpc 语法校验、进程状态、服务端连通、公网回连。
   同一页还有 API Key 管理与开放接口示例。
-- **CUPS 后台**（运维分组）：容器内 CUPS 的「运维面板」—— 一眼看到 CUPS 版本、cupsd 进程 PID、
+- **CUPS 后台**（运维分组）：容器内 CUPS 的运维面板 —— 一眼看到 CUPS 版本、cupsd 进程 PID、
   服务地址、配置/日志/PPD 目录、队列与作业计数；三个页签：
   **队列与作业**（启用/停用、接收/拒收、设为默认、测试页、清空作业；作业挂起/继续/取消）、
   **配置**（在线改 `LogLevel`、`Browsing`、`WebInterface`、作业历史与重试等常用指令，保存前自动备份 `cupsd.conf.pg.bak`，
@@ -71,8 +66,14 @@
 > 需要更细的部署说明（Compose/USB/AirPrint/**Nginx/Caddy/群晖反代**/**小程序三类合法域名**/备份恢复/升级回滚/排障）见
 > **[docs/DEPLOY-GUIDE.md](docs/DEPLOY-GUIDE.md)**，本章只列最短路径。
 >
-> 已发布镜像（仅 arm64）：`docker.io/tomdfwe/printgate:2.2.0`
-> `docker run -d --name printgate --restart unless-stopped -p 8080:8080 -p 631:631 -e TZ=Asia/Shanghai -v /opt/printgate/data:/data -v /opt/printgate/cups:/etc/cups tomdfwe/printgate:2.2.0`
+> 已发布镜像（仅 arm64）：`docker.io/tomdfwe/printgate:2.4.9`
+> ```bash
+> docker run -d --name printgate --restart unless-stopped \
+>   -p 8080:8080 -p 631:631 -e TZ=Asia/Shanghai \
+>   -v /opt/printgate/data:/data -v /opt/printgate/cups:/etc/cups \
+>   tomdfwe/printgate:2.4.9
+> ```
+> x86 主机请自行构建：`docker build --platform linux/amd64 -t printgate:alpine .`
 
 ### 3.1 Docker Compose（推荐）
 
@@ -115,7 +116,7 @@ cd ../server && PG_DATA_DIR=../_data PORT=8080 node src/index.js
 ```
 
 没有实体打印机时，在「打印机」页点 **创建虚拟打印机**：
-PrintGate 会在容器内 127.0.0.1:9100 启动接收器并建立 `PrintGate-Virtual` 队列（raw），
+服务会在容器内 127.0.0.1:9100 启动接收器并建立 `PrintGate-Virtual` 队列（raw），
 打印结果落在数据卷 `spool/` 目录，可用来验证「上传 → 队列 → 提交 → 落盘」全链路。
 
 ---
@@ -131,7 +132,7 @@ PrintGate 会在容器内 127.0.0.1:9100 启动接收器并建立 `PrintGate-Vir
 5. 绑定成功后可在登录页切到「扫码登录」：网页生成二维码（`printgate://login?ticket=...`），
    小程序扫 → 确认 → 网页自动登录（仅 `approved` 且 `role=admin` 的微信可用）。
 6. 如需公网访问：打开「中转对接」按向导走五步（推荐单端口 443），复制片段到云服务器 → 自检通过 → 保存并启用
-   （自动生成 `/data/frp/frpc.toml` 并重启客户端，详见第 7 节）。
+   （自动生成 `/data/frp/frpc.toml` 并重启客户端，详见第 8 节）。
 
 ---
 
@@ -157,8 +158,7 @@ CUPS（容器内 cupsd）
 
 ## 6. 自动扫描打印机 + 驱动自动安装
 
-原版按钮无响应的根因是发现逻辑依赖 cups-web 内部接口，二进制内跳转链接又只会 `window.open("#wechat")`。
-PrintGate 重写为三条独立通道，全部在本机执行、结果可直接添加：
+发现走三条独立通道，全部在本机执行，结果可直接添加：
 
 1. **mDNS / AirPrint**：`avahi-browse -artp _ipp._tcp,_ipps._tcp,_printer._tcp`，解析 TXT 里的型号；
 2. **CUPS 设备枚举**：`lpinfo -v`（dnssd://、ipp://、usb://）；
@@ -201,7 +201,7 @@ PrintGate 重写为三条独立通道，全部在本机执行、结果可直接�
 
 ---
 
-## 6.6 扫描仪（SANE）启用与排障
+## 7. 扫描仪（SANE）启用与排障
 
 镜像里已经装好 `sane`（后端与驱动库）+ `sane-utils`（`scanimage` / `sane-find-scanner`）+ `sane-network`，
 **不需要再手工安装**；真正需要你做的是把设备「送进容器」：
@@ -230,7 +230,7 @@ docker exec printgate scanimage -L            # SANE 认到的设备（查驱动
 
 ---
 
-## 6.5 单端口 443 部署（frp wss 复用，小程序可用）
+## 8. 单端口 443 部署（frp wss 复用，小程序可用）
 
 微信小程序只接受 **https + 已备案域名 + 443**，所以即使只有一台 N1，也建议把 443 作为唯一公网入口。
 链路：`小程序 → 云:443(nginx) → frps:7000 → frpc(N1) → PrintGate:8080 → 内网打印机`。
@@ -264,17 +264,17 @@ BASE 是否为 https 域名、以及从公网地址回连 `/api/health`。全绿
 
 ---
 
-## 7. 安全设计
+## 9. 安全设计
 
-- **管理员密码**：scrypt(N=16384,r=8,p=1) + 16 字节随机盐；兼容旧版明文密码，首次登录后自动升级。
+- **管理员密码**：`scrypt(N=16384,r=8,p=1)` + 16 字节随机盐，首次部署向导设置，可在线改密。
 - **防爆破**：登录失败按 IP 计数入库，达阈值（默认 5 次）锁定（默认 15 分钟），返回剩余次数；
   绑定码、二维码轮询、扫码确认、API Key 各自独立限流；全局 `/api` 每分钟 900 次上限。
-- **绑定码（v2.1.1）**：32 位 hex（128 bit 随机）、定时安全比较、**一码一人 + 默认 10 分钟 TTL**，
+- **绑定码**：32 位 hex（128 bit 随机）、定时安全比较、**一码一人 + 默认 10 分钟 TTL**，
   绑定成功或到期即换新；全站 30 分钟内失败 50 次强制换码。评估与实测见
   [SECURITY-BIND-CODE](docs/SECURITY-BIND-CODE.md)。
 - **转发头**：`TRUST_PROXY=true` 只在请求确实来自本机/内网反代时采信 `X-Forwarded-For`，
   公网直连场景自动忽略该头，避免伪造 IP 绕过锁定与限流。
-- **角色隔离（v2.2.0）**：扫码登录按角色签发不同会话——管理员 `scope=admin`，普通用户 `scope=miniapp`。
+- **角色隔离**：扫码登录按角色签发不同会话——管理员 `scope=admin`，普通用户 `scope=miniapp`。
   普通用户会话调 `/api/*` 管理接口一律 401/403；被拉黑后 `whoami` 与扫码立即 403，令牌不复活。
   密码登录与扫码登录不能同时关闭（服务端强制校验），避免把自己锁在门外。
 - **会话**：JWT HS256，密钥首次启动随机生成并持久化，默认 24 小时；`Authorization: Bearer`。
@@ -282,7 +282,7 @@ BASE 是否为 https 域名、以及从公网地址回连 `/api/health`。全绿
 - **最小暴露面**：CUPS 内置 Web 界面关闭（`WebInterface No`），管理级 IPP 操作仅限本机；
   631 只放行局域网打印，管理操作全部走 PrintGate。
 - **审计**：登录、改密、打印、审批、打印机增删、设置变更、扫码、API Key 等全部留痕，可导出 CSV。
-- **生成内容防注入**（第九轮加固，详见 [TEST-REPORT](docs/TEST-REPORT.md)）：
+- **生成内容防注入**（细节见 [TEST-REPORT](docs/TEST-REPORT.md)）：
   - `frpc.toml`：`frpServer` / `frpToken` 先做格式与字符集白名单，写入前再按 TOML basic string 转义。
     否则一个带引号与换行的 Token 就能塞进额外的 `[[proxies]]`，等于把容器任意端口经 frps 转发到公网。
   - 审计 CSV：所有单元格先中和 `= + - @` 等公式前缀再转义引号。
@@ -299,20 +299,7 @@ BASE 是否为 https 域名、以及从公网地址回连 `/api/health`。全绿
 
 ---
 
-## 8. 从旧版迁移
-
-把旧数据卷（含 `remote-print.db` 与 `uploads/`）挂到新容器 `/data` 后首次启动，服务会自动：
-
-- 读取 `remote-print.db`（只读）：迁移管理员密码、微信 AppID/Secret、管理员 OpenID、绑定码、限额、审批开关；
-- 迁移用户（openid / 角色 / 状态）与历史上传文件、打印任务（路径自动改写到 `/data`）；
-- 写入标记 `legacyMigrated`，不会重复导入。
-
-旧版 `cups-web.db` 里的 API Key 无法迁移（哈希不可逆），请在新后台「中转对接」重新生成。
-打印机队列保存在 `/etc/cups`，把旧容器的 `/etc/cups` 挂载过来即可保留。
-
----
-
-## 9. 已知限制
+## 10. 已知限制
 
 - **Office 文档**：默认镜像不含 LibreOffice（体积原因）。构建时加 `--build-arg WITH_OFFICE=1`
   即内置 writer/calc/impress（docx/xlsx/pptx → PDF，约 +90MB，中文渲染用镜像内的文泉驿字体）；
@@ -330,7 +317,7 @@ BASE 是否为 https 域名、以及从公网地址回连 `/api/health`。全绿
 
 ---
 
-## 10. 目录结构
+## 11. 目录结构
 
 ```
 printgate/
@@ -339,20 +326,27 @@ printgate/
 ├─ docker/
 │  ├─ entrypoint.sh           CUPS + Avahi + PrintGate + frp 守护
 │  └─ cupsd.conf              A4/AirPrint 修复、最小暴露面
+├─ miniprogram/               微信小程序（Vant Weapp）
 ├─ server/                    Node.js 服务（Express + better-sqlite3）
 │  ├─ src/
 │  │  ├─ index.js  config.js  db.js  security.js  middleware.js
-│  │  ├─ cups.js   discover.js  scan.js  system.js  pdf.js
-│  │  ├─ wechat.js  migrate.js  converter.js  vprinter.js
-│  │  └─ routes/   auth / mp / printers / print / users / settings / system / apikeys
+│  │  ├─ cups.js  cupsadmin.js  ipp.js  ipp-proxy.js  printerstore.js
+│  │  ├─ discover.js  drivers.js  scan.js  system.js  cleanup.js
+│  │  ├─ pdf.js  render.js  converter.js  idcard.js  fsutil.js
+│  │  ├─ wechat.js  orphans.js
+│  │  └─ routes/   auth account mp print printers users settings
+│  │               system cups drivers relay wechat apikeys
 │  └─ public/                 前端构建产物（vite 输出）
+├─ tools/                     回归与自检脚本
+├─ docs/                      部署、安全、测试文档
+├─ 小程序预览/                小程序页面预览图
 └─ web/                       Vue3 + NaiveUI + Vite
-   └─ src/  views/  layouts/  api.js  router.js  store.js
+   └─ src/  views/  layouts/  components/  api.js  router.js  store.js
 ```
 
 ---
 
-## 11. 测试与验证
+## 12. 测试与验证
 
 本地（Docker Desktop / linux-amd64）已完成多轮回归，全部通过：
 
@@ -361,11 +355,10 @@ printgate/
 - 历史清理后端 **35/35**（范围隔离 / 幂等 / 并发 / CUPS 保留天数 / 自动清理审计）、清理弹窗 **12/12**；
 - 深度猎杀 **59/59**（配置注入 / 令牌安全 / 打印参数 / 并发 / 输入模糊 / 权限 / CSV 注入）；
 - 全站巡检 **14/14**（12 个页面逐个打开，零 console 报错、零 4xx、无横向溢出）；
-- 覆盖鉴权越权、伪造令牌、参数注入、并发打印、票据一次性、防爆破锁定、服务重启、移动端布局；
-- 另用旧数据卷验证了迁移（用户/任务/文件/小程序凭据全部保留）。
+- 覆盖鉴权越权、伪造令牌、参数注入、并发打印、票据一次性、防爆破锁定、服务重启、移动端布局。
 
-测试脚本与问题清单见 [`docs/TEST-REPORT.md`](docs/TEST-REPORT.md)。脚本随包提供在 `tools/` 目录，
-一条命令即可跑完整回归（脚本会自动适配目录布局，直接用交付包解压出来的目录也能跑）：
+测试脚本与问题清单见 [`docs/TEST-REPORT.md`](docs/TEST-REPORT.md)。脚本随源码提供在 `tools/` 目录，
+一条命令即可跑完整回归（脚本自动适配目录布局，源码放在任意路径都能跑）：
 
 ```bash
 PG_BASE=http://127.0.0.1:8080 PG_PASS=<管理员密码> bash tools/run-all.sh api     # 14+ 套接口用例
@@ -384,7 +377,7 @@ PG_BASE=http://127.0.0.1:18080 PG_PASS=<密码> PG_EXEC="docker exec <容器名>
 ```
 
 `tools/` 里的小程序检查脚本（`check-wxml` / `mp-page-test` / `mp-prefs-test` / `mp-wiring-check` / `mp-contract-check`）
-需要包内有 `miniprogram/`；若交付包已裁剪掉小程序源码，它们会打印「跳过」并以 0 退出，不影响其余套件。
+需要仓库内有 `miniprogram/`；若该目录不存在，它们会打印「跳过」并以 0 退出，不影响其余套件。
 
 `tools/hunt12.js` 是上线前验收专用：自动扫描路由声明做**授权矩阵**（匿名令牌 / 普通用户令牌逐个打受保护接口），
 并回归设备 URI、队列名、密钥回显、路径包含等校验点。
@@ -394,7 +387,7 @@ PG_BASE=http://127.0.0.1:18080 PG_PASS=<密码> PG_EXEC="docker exec <容器名>
 
 ---
 
-## 12. 常见问题
+## 13. 常见问题
 
 | 现象 | 排查 |
 | --- | --- |
