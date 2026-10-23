@@ -19,6 +19,10 @@
 | 角色 | 管理员进管理台，普通用户进独立打印门户 | 普通用户会话碰不到任何管理接口 |
 | 中转 | 后台可视化配置 frp，五步向导 + 在线自检 | 不手写 frpc 配置，公网接入前先验证连通 |
 
+![运行概览](docs/screenshots/admin-dashboard.png)
+
+*运行概览：今日任务、累计完成、在线打印机，右侧是服务健康清单，标黄项点「去配置」直达对应页面。*
+
 ---
 
 ## 2. 功能一览（管理台）
@@ -59,19 +63,26 @@
 - **系统状态**：版本、运行时长、内存/磁盘/负载、服务进程重启、数据占用、数据库备份。
 - **系统设置**：打印默认值与限额、审批策略、安全（锁定阈值/会话时长/扫码登录/开发模式）、小程序、frp、数据保留与清理。
 
+![发起打印](docs/screenshots/print-workspace.png)
+
+*发起打印：四种模式一页切换，左栏全部打印参数，右栏实时预览、最近记录与打印机状态（墨量/纸盒）。*
+
+> 逐项配置步骤见 **[docs/CONFIG-GUIDE.md](docs/CONFIG-GUIDE.md)**。
+
 ---
 
 ## 3. 快速开始
 
 > 需要更细的部署说明（Compose/USB/AirPrint/**Nginx/Caddy/群晖反代**/**小程序三类合法域名**/备份恢复/升级回滚/排障）见
-> **[docs/DEPLOY-GUIDE.md](docs/DEPLOY-GUIDE.md)**，本章只列最短路径。
+> **[docs/DEPLOY-GUIDE.md](docs/DEPLOY-GUIDE.md)**；打印机、小程序、中转的逐项配置见
+> **[docs/CONFIG-GUIDE.md](docs/CONFIG-GUIDE.md)**。本章只列最短路径。
 >
-> 已发布镜像（仅 arm64）：`docker.io/tomdfwe/printgate:2.4.9`
+> 已发布镜像（仅 arm64）：`docker.io/tomdfwe/printgate:latest`
 > ```bash
 > docker run -d --name printgate --restart unless-stopped \
 >   -p 8080:8080 -p 631:631 -e TZ=Asia/Shanghai \
 >   -v /opt/printgate/data:/data -v /opt/printgate/cups:/etc/cups \
->   tomdfwe/printgate:2.4.9
+>   docker.io/tomdfwe/printgate:latest
 > ```
 > x86 主机请自行构建：`docker build --platform linux/amd64 -t printgate:alpine .`
 
@@ -134,6 +145,14 @@ cd ../server && PG_DATA_DIR=../_data PORT=8080 node src/index.js
 6. 如需公网访问：打开「中转对接」按向导走五步（推荐单端口 443），复制片段到云服务器 → 自检通过 → 保存并启用
    （自动生成 `/data/frp/frpc.toml` 并重启客户端，详见第 8 节）。
 
+![小程序对接](docs/screenshots/mp-integration.png)
+
+*小程序对接：AppID / AppSecret / 接入地址 / 管理员白名单与三项策略集中一页，右栏是绑定二维码与接入进度，底部同屏接口文档。*
+
+![小程序用户](docs/screenshots/mp-users.png)
+
+*小程序用户：按待审批 / 已授权 / 已拒绝 / 已拉黑分页签，可授权、拉黑、提权为管理员。*
+
 ---
 
 ## 5. 打印链路
@@ -164,6 +183,10 @@ CUPS（容器内 cupsd）
 2. **CUPS 设备枚举**：`lpinfo -v`（dnssd://、ipp://、usb://）；
 3. **网段主动探测**：并发探测 631(IPP)、9100(RAW)，深度模式额外探测 443(IPPS)、515(LPD)，
    并对 631/443 做真实 `Get-Printer-Attributes` 握手。
+
+![自动扫描打印机](docs/screenshots/printer-scan.png)
+
+*自动扫描：「扫描范围」填真实局域网网段；扫到的设备带识别结果列出，可批量添加。*
 
 握手带来三个实际好处（也是「扫到了却用不了」的根因）：
 
@@ -196,6 +219,14 @@ CUPS（容器内 cupsd）
 - **上传 / 直链**：上传 `.ppd` / `.ppd.gz` / `.tar.gz` / `.zip`（自动解包找 PPD），或填 PPD 直链下载。
   下载有大小上限、超时、跳转次数限制，并默认拒绝内网地址（SSRF 防护，可用
   `PG_ALLOW_PRIVATE_DRIVER_URL=1` 放开）。
+
+![选择驱动 · 推荐](docs/screenshots/driver-recommend.png)
+
+*推荐页签：设备有 IPP 服务时优先 `IPP Everywhere` 免驱；建不起队列可一键「生成免驱 PPD」。*
+
+![选择驱动 · 本地驱动库](docs/screenshots/driver-library.png)
+
+*本地驱动库：`lpinfo -m` 全量列表 + 已导入的 PPD，可按型号搜索；`everywhere` 与 `raw` 恒在最前。*
 
 导入的驱动统一存放在数据卷 `drivers/` 下，可在驱动库里删除。
 
@@ -235,6 +266,10 @@ docker exec printgate scanimage -L            # SANE 认到的设备（查驱动
 微信小程序只接受 **https + 已备案域名 + 443**，所以即使只有一台 N1，也建议把 443 作为唯一公网入口。
 链路：`小程序 → 云:443(nginx) → frps:7000 → frpc(N1) → PrintGate:8080 → 内网打印机`。
 打印机的 631 / 9100 全程不暴露（容器出站访问）。
+
+![中转对接](docs/screenshots/relay-wizard.png)
+
+*中转对接：五步向导（出网模式 → 公网地址 → frps → nginx 片段 → 自检），下方实时显示当前环境与 frpc 配置路径。*
 
 「中转对接」向导选「单端口 443」后，按提示填域名 / 服务端 / Token，页面会生成三段配置：
 
@@ -293,6 +328,10 @@ BASE 是否为 https 域名、以及从公网地址回连 `/api/health`。全绿
   若部署在 Nginx/Caddy 等可信反代之后，给容器加 `TRUST_PROXY=true`，此时取 XFF 最后一跳作为客户端 IP
   （务必让反代覆盖或追加该头，不要把应用直接暴露在公网又开启此开关）。
 
+![系统设置 · 安全](docs/screenshots/settings-security.png)
+
+*系统设置：登录失败阈值与锁定时长、三种登录方式开关、在线改密，下方是登录失败记录与一键解锁。*
+
 > 说明：容器内 `cupsd` 需要 root 才能监听 631 并管理队列，PrintGate 与 CUPS 同容器运行，
 > 因此进程以 root 启动；应用侧所有外部命令均通过 `execFile` 参数数组调用、不经 shell，
 > 并对队列名、页码、参数做白名单校验。若需要严格非 root，可将 CUPS 拆为独立容器并把 631 指向它。
@@ -346,48 +385,7 @@ printgate/
 
 ---
 
-## 12. 测试与验证
-
-本地（Docker Desktop / linux-amd64）已完成多轮回归，全部通过：
-
-- 端到端 **44/44**、破坏性自测 **97/97**、绕过与竞态 **29/29**、浏览器逐页 **25/25**、首次部署 **11/11**、交互级 **14/14**；
-- 扫描与驱动 **35/35**（配 `mock-ipp.js` 假设备）、扫描抽屉 **14/14**、中转与自检 **23/23**、中转向导 **15/15**；
-- 历史清理后端 **35/35**（范围隔离 / 幂等 / 并发 / CUPS 保留天数 / 自动清理审计）、清理弹窗 **12/12**；
-- 深度猎杀 **59/59**（配置注入 / 令牌安全 / 打印参数 / 并发 / 输入模糊 / 权限 / CSV 注入）；
-- 全站巡检 **14/14**（12 个页面逐个打开，零 console 报错、零 4xx、无横向溢出）；
-- 覆盖鉴权越权、伪造令牌、参数注入、并发打印、票据一次性、防爆破锁定、服务重启、移动端布局。
-
-测试脚本与问题清单见 [`docs/TEST-REPORT.md`](docs/TEST-REPORT.md)。脚本随源码提供在 `tools/` 目录，
-一条命令即可跑完整回归（脚本自动适配目录布局，源码放在任意路径都能跑）：
-
-```bash
-PG_BASE=http://127.0.0.1:8080 PG_PASS=<管理员密码> bash tools/run-all.sh api     # 14+ 套接口用例
-PG_BASE=http://127.0.0.1:8080 PG_PASS=<管理员密码> bash tools/run-all.sh static  # 小程序静态检查
-PG_BASE=http://127.0.0.1:8080 PG_PASS=<管理员密码> bash tools/run-all.sh ui      # 浏览器端到端
-# UI 套件需要 puppeteer-core，未装在 server/node_modules 时用 NODE_PATH 指过去
-```
-
-打印链路（上传 → 提交 → CUPS 队列 → 落地出的纸）用 `tools/cups-e2e.js` 验证，
-跑在装了 CUPS 的机器/容器上即可（无实体打印机时用「虚拟打印机」接收器落盘）：
-
-```bash
-PG_BASE=http://127.0.0.1:8080 PG_PASS=<密码> node tools/cups-e2e.js
-# 从宿主机操作容器内的实例（用来读落盘文件内容）：
-PG_BASE=http://127.0.0.1:18080 PG_PASS=<密码> PG_EXEC="docker exec <容器名>" node tools/cups-e2e.js
-```
-
-`tools/` 里的小程序检查脚本（`check-wxml` / `mp-page-test` / `mp-prefs-test` / `mp-wiring-check` / `mp-contract-check`）
-需要仓库内有 `miniprogram/`；若该目录不存在，它们会打印「跳过」并以 0 退出，不影响其余套件。
-
-`tools/hunt12.js` 是上线前验收专用：自动扫描路由声明做**授权矩阵**（匿名令牌 / 普通用户令牌逐个打受保护接口），
-并回归设备 URI、队列名、密钥回显、路径包含等校验点。
-
-> 改了前端后重建镜像：`docker build --build-arg CACHEBUST=$(date +%s) -t printgate:alpine .`
-> 换了镜像必须重建容器，否则容器仍挂在旧镜像上（界面上会看不到新功能）。
-
----
-
-## 13. 常见问题
+## 12. 常见问题
 
 | 现象 | 排查 |
 | --- | --- |
@@ -398,3 +396,32 @@ PG_BASE=http://127.0.0.1:18080 PG_PASS=<密码> PG_EXEC="docker exec <容器名>
 | 小程序登录报 AppSecret 无效 | 后台「小程序对接 → 测试连通性」，确认 AppID 与 Secret 属于同一小程序 |
 | 扫码登录提示不是管理员 | 先用小程序扫「绑定管理员微信」的二维码完成绑定 |
 | 忘记后台密码 | 停容器 → 删除数据卷里的 `printgate.db`（会丢配置与任务记录）→ 重新初始化 |
+
+---
+
+## 13. 技术栈与许可证
+
+**后端**：Node.js 22 · Express 4 · better-sqlite3（WAL）· pdfkit · sharp · qrcode · jsonwebtoken · multer
+
+**打印与扫描**：CUPS（IPP 2.0 直连 + `lpadmin` / `lpstat` 命令双通道）· SANE（`sane` / `sane-utils` / `sane-network`）
+
+**前端**：Vue 3.5 · Vite 6 · Naive UI 2.40 · Vue Router 4（hash 模式）· axios
+
+**小程序**：原生小程序 + `@vant/weapp` · `code2session` 登录 · JWT 会话 · 扫码绑定 / 扫码登录
+
+**容器**：多阶段构建，Node 22 Alpine 运行时内置 CUPS、sane 与中文字体，Office 文档转换可选 LibreOffice
+
+### 引用的第三方组件与协议
+
+本项目自身以 [MIT](LICENSE) 发布。运行时引用的组件及其许可证：
+
+| 组件 | 许可证 | 引用方式 |
+| --- | --- | --- |
+| **CUPS** | GPL-2.0 / Apache-2.0 双许可 | 独立进程调用（`cupsd`、`lpadmin`、`lpstat`）并通过 IPP 协议通信，不与本项目代码静态链接 |
+| LibreOffice | MPL-2.0 | 可选组件（`WITH_OFFICE=1`），独立进程调用 `soffice` 做 Office → PDF |
+| SANE | GPL-2.0+ | 独立进程调用 `scanimage` / `sane-find-scanner` |
+| Avahi | LGPL-2.1 | 独立进程，提供 mDNS / AirPrint 广播 |
+| frp | Apache-2.0 | 独立二进制，客户端进程由入口脚本守护 |
+
+> CUPS 为 GPL-2.0 / Apache-2.0 双许可，本项目按其 Apache-2.0 分支以独立进程方式调用，
+> 源码在 MIT 下分发；若修改并分发 CUPS 自身，仍需遵循其许可证。
