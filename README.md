@@ -317,7 +317,7 @@ BASE 是否为 https 域名、以及从公网地址回连 `/api/health`。全绿
 - **最小暴露面**：CUPS 内置 Web 界面关闭（`WebInterface No`），管理级 IPP 操作仅限本机；
   631 只放行局域网打印，管理操作全部走 PrintGate。
 - **审计**：登录、改密、打印、审批、打印机增删、设置变更、扫码、API Key 等全部留痕，可导出 CSV。
-- **生成内容防注入**（细节见 [TEST-REPORT](docs/TEST-REPORT.md)）：
+- **生成内容防注入**：
   - `frpc.toml`：`frpServer` / `frpToken` 先做格式与字符集白名单，写入前再按 TOML basic string 转义。
     否则一个带引号与换行的 Token 就能塞进额外的 `[[proxies]]`，等于把容器任意端口经 frps 转发到公网。
   - 审计 CSV：所有单元格先中和 `= + - @` 等公式前缀再转义引号。
@@ -376,8 +376,8 @@ printgate/
 │  │  └─ routes/   auth account mp print printers users settings
 │  │               system cups drivers relay wechat apikeys
 │  └─ public/                 前端构建产物（vite 输出）
-├─ tools/                     回归与自检脚本
-├─ docs/                      部署、安全、测试文档
+├─ tools/                     运维与自检脚本
+├─ docs/                      部署、配置与安全文档
 ├─ 小程序预览/                小程序页面预览图
 └─ web/                       Vue3 + NaiveUI + Vite
    └─ src/  views/  layouts/  components/  api.js  router.js  store.js
