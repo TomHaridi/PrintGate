@@ -1,7 +1,14 @@
 # PrintGate
 
+[![Docker Pulls](https://img.shields.io/docker/pulls/tomdfwe/printgate?style=flat-square&logo=docker&label=pulls)](https://hub.docker.com/repository/docker/tomdfwe/printgate/general)
+[![Docker Image Size](https://img.shields.io/docker/image-size/tomdfwe/printgate/latest?style=flat-square&logo=docker&label=image)](https://hub.docker.com/repository/docker/tomdfwe/printgate/general)
+[![Platform](https://img.shields.io/badge/platform-linux%2Farm64-066da5?style=flat-square&logo=linux&logoColor=white)](https://hub.docker.com/repository/docker/tomdfwe/printgate/general)
+[![License](https://img.shields.io/github/license/TomHaridi/PrintGate?style=flat-square&color=blue)](LICENSE)
+
 > CUPS 打印网关 + 微信小程序远程打印 + Vue3 管理台。
 > Alpine 单容器自带 CUPS、Avahi 与 frp 守护，一条 `docker run` 跑通「小程序/网页上传 → CUPS 队列 → 打印机出纸」。
+
+镜像地址：**[hub.docker.com/repository/docker/tomdfwe/printgate](https://hub.docker.com/repository/docker/tomdfwe/printgate/general)**
 
 ---
 
