@@ -1,5 +1,5 @@
 # 说明：本文件用于「在源码目录本地构建镜像」（build: .）。
-# 只想部署官方镜像，请用 docs/DOCKER-DEPLOY.md 里的 compose 片段（image: tomdfwe/printgate:latest）。
+# 只想部署官方镜像，直接用 README「2.2 Docker Compose 部署」里 image: tomdfwe/printgate:latest 的片段。
 services:
   printgate:
     build:
