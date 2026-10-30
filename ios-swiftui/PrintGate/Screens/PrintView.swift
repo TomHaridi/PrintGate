@@ -206,6 +206,7 @@ struct PrintView: View {
                     } label: {
                         DFIcon("xmark.circle.fill", size: 18)
                             .foregroundStyle(theme.colors.textSecondary)
+                            .iconTapTarget()
                     }
                     .buttonStyle(.plain)
                 }
@@ -328,6 +329,7 @@ struct PrintView: View {
                             } label: {
                                 DFIcon("xmark.circle.fill", size: 16)
                                     .foregroundStyle(.white, .black.opacity(0.55))
+                                    .iconTapTarget(36)
                             }
                             .buttonStyle(.plain)
                             .offset(x: 4, y: -4)

@@ -13,6 +13,20 @@ extension View {
     func cardPadding() -> some View {
         padding(16)
     }
+
+    /// 底部留出 Home 指示条的手势区。
+    /// 贴着屏幕最下沿的按钮会被系统「返回主屏」手势吃掉点击（表现为点不中），
+    /// 所以内容末尾一律用这个代替普通 bottom padding。
+    func safeBottomPadding(_ extra: CGFloat = 0) -> some View {
+        padding(.bottom, 34 + extra)
+    }
+
+    /// 纯图标按钮的最小可点击区（Apple HIG 44pt）。
+    /// 只有 16~18pt 的图标按钮热区太小，手指很容易点空，必须套上这个。
+    func iconTapTarget(_ size: CGFloat = 44) -> some View {
+        frame(minWidth: size, minHeight: size)
+            .contentShape(Rectangle())
+    }
 }
 
 private struct ScreenBackground: ViewModifier {

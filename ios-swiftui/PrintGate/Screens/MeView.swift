@@ -36,16 +36,14 @@ struct MeView: View {
 
                     AnyView(settingsCard)
                     AnyView(aboutCard)
-
-                    DFButton("退出登录", style: .outlined, role: .destructive) {
-                        showLogout = true
-                    }
-                    .padding(.top, 4)
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 8)
-                .padding(.bottom, 24)
+                .padding(.bottom, 16)
             }
+            // 退出登录固定在页面底部（Tab 栏之上），不再随内容滚到最底下——
+            // 原来放在 ScrollView 末尾，会落进底部安全区 / Home 指示条手势区，点不中。
+            .safeAreaInset(edge: .bottom, spacing: 0) { logoutBar }
             .screenBackground()
             .dfNavigationBar(title: "我的", displayMode: .inline)
             .task { await refreshVersion() }
@@ -71,6 +69,21 @@ struct MeView: View {
                 )
             )
         }
+    }
+
+    // MARK: 底部固定操作条
+
+    /// 常驻在 Tab 栏上方的退出登录按钮，永远可点，不会被底部手势区吃掉点击
+    private var logoutBar: some View {
+        VStack(spacing: 0) {
+            Divider().opacity(0.25)
+            DFButton("退出登录", style: .outlined, role: .destructive) {
+                showLogout = true
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+        }
+        .background(theme.colors.background)
     }
 
     // MARK: 资料卡
@@ -100,6 +113,7 @@ struct MeView: View {
                     } label: {
                         DFIcon("square.and.pencil", size: 18)
                             .foregroundStyle(theme.colors.textSecondary)
+                            .iconTapTarget()
                     }
                     .buttonStyle(.plain)
                 }
@@ -313,7 +327,9 @@ struct ProfileSheet: View {
                         }
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .safeBottomPadding()
             }
             .screenBackground()
             .dfNavigationBar(title: "个人资料", displayMode: .inline) {
@@ -397,7 +413,9 @@ struct PasswordSheet: View {
                         }
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .safeBottomPadding()
             }
             .screenBackground()
             .dfNavigationBar(title: "修改密码", displayMode: .inline) {
@@ -466,7 +484,9 @@ struct BindSheet: View {
                         }
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .safeBottomPadding()
             }
             .screenBackground()
             .dfNavigationBar(title: "绑定管理员", displayMode: .inline) {

@@ -64,7 +64,7 @@ struct HistoryView: View {
                             }
                         }
                         .padding(.horizontal, 14)
-                        .padding(.bottom, 16)
+                        .safeBottomPadding()
                     }
                     .refreshable { await load() }
                 }

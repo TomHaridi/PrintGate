@@ -31,23 +31,42 @@ struct AdminFullSettingsView: View {
                 } else {
                     officeCard
                     settingsCards
-                    if !error.isEmpty {
-                        DFBanner(icon: "exclamationmark.triangle.fill", message: error, severity: .error, isDismissible: false, onDismiss: {})
-                    }
-                    DFButton(saving ? "保存中…" : "保存全部改动") {
-                        Task { await saveAll() }
-                    }
-                    .disabled(saving || loading)
-                    DFText("这些是服务端全部可配置项，改动立即生效。", scale: .caption).dfTextViewStyle(.secondary)
                 }
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
         }
+        // 保存按钮固定在底部：本页会渲染几十个设置项，原来放在末尾要滚很久才能碰到，
+        // 而且会落进 Home 指示条手势区导致点不中。
+        .safeAreaInset(edge: .bottom, spacing: 0) { saveBar }
         .screenBackground()
         .dfNavigationBar(title: "完整后台设置", displayMode: .inline)
         .dfSheet(isPresented: Binding(get: { editKey != nil }, set: { if !$0 { editKey = nil } })) {
             editSheet
+        }
+    }
+
+    // MARK: 底部固定保存条
+
+    /// 未解锁时不占位；解锁后常驻底部，随时能保存
+    @ViewBuilder
+    private var saveBar: some View {
+        if unlocked {
+            VStack(spacing: 6) {
+                if !error.isEmpty {
+                    DFBanner(icon: "exclamationmark.triangle.fill", message: error, severity: .error, isDismissible: false, onDismiss: {})
+                        .padding(.horizontal, 14)
+                }
+                DFButton(saving ? "保存中…" : "保存全部改动") {
+                    Task { await saveAll() }
+                }
+                .disabled(saving || loading)
+                .padding(.horizontal, 14)
+                DFText("这些是服务端全部可配置项，改动立即生效。", scale: .caption).dfTextViewStyle(.secondary)
+            }
+            .padding(.top, 8)
+            .padding(.bottom, 6)
+            .background(theme.colors.background)
         }
     }
 

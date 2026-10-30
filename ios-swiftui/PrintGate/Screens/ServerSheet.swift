@@ -72,7 +72,9 @@ struct ServerSheet: View {
                         }
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .safeBottomPadding()
             }
             .screenBackground()
             .dfNavigationBar(title: "服务器", displayMode: .inline) {
@@ -194,7 +196,9 @@ struct LanSheet: View {
                         }
                     }
                 }
-                .padding(16)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .safeBottomPadding()
             }
             .screenBackground()
             .dfNavigationBar(title: "局域网扫描", displayMode: .inline) {

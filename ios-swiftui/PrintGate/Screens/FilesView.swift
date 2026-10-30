@@ -51,6 +51,7 @@ struct FilesView: View {
                     showPhotos = true
                 } label: {
                     DFIcon("plus", size: 18)
+                        .iconTapTarget()
                 }
             }
             .safeAreaInset(edge: .bottom) {
@@ -120,7 +121,9 @@ struct FilesView: View {
                     Button {
                         preview = f
                     } label: {
-                        DFIcon("eye", size: 18).foregroundStyle(theme.colors.textSecondary)
+                        DFIcon("eye", size: 18)
+                            .foregroundStyle(theme.colors.textSecondary)
+                            .iconTapTarget()
                     }
                     .buttonStyle(.plain)
                 }
@@ -134,7 +137,9 @@ struct FilesView: View {
                     Button {
                         pendingDelete = f
                     } label: {
-                        DFIcon("trash", size: 16).foregroundStyle(theme.colors.destructive)
+                        DFIcon("trash", size: 16)
+                            .foregroundStyle(theme.colors.destructive)
+                            .iconTapTarget()
                     }
                     .buttonStyle(.plain)
                 }
@@ -293,7 +298,9 @@ struct FilePreviewSheet: View {
                     Spacer()
                 }
             }
-            .padding(16)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .safeBottomPadding()
             .screenBackground()
             .dfNavigationBar(title: file.filename, displayMode: .inline) {
                 DFButton("关闭") { dismiss() }.dfButtonStyle(.ghost)

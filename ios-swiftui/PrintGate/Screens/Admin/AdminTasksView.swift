@@ -56,7 +56,7 @@ struct AdminTasksView: View {
                         }
                     }
                     .padding(.horizontal, 14)
-                    .padding(.bottom, 16)
+                    .safeBottomPadding()
                 }
                 .refreshable { await load() }
             }
@@ -67,6 +67,7 @@ struct AdminTasksView: View {
                 showCleanup = true
             } label: {
                 DFIcon("trash", size: 17)
+                    .iconTapTarget()
             }
         }
         .task { await load() }

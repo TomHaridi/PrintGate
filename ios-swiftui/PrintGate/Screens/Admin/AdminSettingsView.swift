@@ -71,23 +71,36 @@ struct AdminSettingsView: View {
                     }
                 )
 
-                if !error.isEmpty {
-                    DFBanner(icon: "exclamationmark.triangle.fill", message: error, severity: .error, isDismissible: false, onDismiss: {})
-                }
-
-                DFButton(saving ? "保存中…" : "保存设置") {
-                    Task { await save() }
-                }
-                .disabled(saving || loading)
-
-                DFText("保存后立即生效，不需要重启服务。", scale: .caption).dfTextViewStyle(.secondary)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 10)
         }
+        // 保存按钮固定在底部：本页内容较长，原来放在 ScrollView 末尾会落到
+        // 屏幕最下沿的 Home 指示条手势区，点不中。
+        .safeAreaInset(edge: .bottom, spacing: 0) { saveBar }
         .screenBackground()
         .dfNavigationBar(title: "常用设置", displayMode: .inline)
         .task { await load() }
+    }
+
+    // MARK: 底部固定保存条
+
+    private var saveBar: some View {
+        VStack(spacing: 6) {
+            if !error.isEmpty {
+                DFBanner(icon: "exclamationmark.triangle.fill", message: error, severity: .error, isDismissible: false, onDismiss: {})
+                    .padding(.horizontal, 14)
+            }
+            DFButton(saving ? "保存中…" : "保存设置") {
+                Task { await save() }
+            }
+            .disabled(saving || loading)
+            .padding(.horizontal, 14)
+            DFText("保存后立即生效，不需要重启服务。", scale: .caption).dfTextViewStyle(.secondary)
+        }
+        .padding(.top, 8)
+        .padding(.bottom, 6)
+        .background(theme.colors.background)
     }
 
     private func load() async {
