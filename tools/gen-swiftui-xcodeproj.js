@@ -160,7 +160,7 @@ function generate() {
   buildFileLines.push(`\t\t${assetsBf} /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ${assetsRef} /* Assets.xcassets */; };`);
 
   const infoRef = nextId();
-  fileRefLines.push(`\t\t${infoRef} /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; }`);
+  fileRefLines.push(`\t\t${infoRef} /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };`);
 
   const appRef = nextId();
   fileRefLines.push(`\t\t${appRef} /* ${TARGET}.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ${TARGET}.app; sourceTree = BUILT_PRODUCTS_DIR; };`);
