@@ -70,7 +70,29 @@ cd ../app && PG_BASE=http://127.0.0.1:8099 flutter test test/api_live_test.dart
 
 ## 出 IPA（两条路，任选一条）
 
-### A. GitHub Actions（推荐，public 仓库免费）
+### 首次成功记录（2026-10-30）
+
+Codemagic 上跑通了，产出一个真 IPA：
+
+| 项 | 值 |
+|---|---|
+| Build | `#1` · id `6ae4a0b5efa74786046f1f37` |
+| 机器 | Mac mini M2（免费额度） |
+| 总耗时 | **5 分 46 秒**（安装 SDK 1m42s、`Build iOS` 1m33s） |
+| 产物 | `PrintGate-unsigned.ipa` · **8.08 MB** |
+| 校验 | `CFBundleIdentifier=com.printgate.app`、`MinimumOSVersion=15.0`、`Runner` 为 arm64 Mach-O、app 根目录无 `_CodeSignature`（确认未签名）、ATS 已放开、仅竖屏 |
+
+各步耗时：Preparing 48s / Fetch 6s / Installing SDKs 1m42s / Flutter doctor 48s / Pub get 4s / Analyze 7s / Unit tests 14s / **Build iOS 1m33s** / Package 2s / Publish 3s。
+
+> 注：同账号的 **GitHub Actions 被平台禁用**（`Actions has been disabled for this user`），所以 `flutter-ios.yml` 暂时用不上，只能等 GitHub Support 解封。
+
+### A. Codemagic（当前可用）
+
+1. 已建好 App：`PrintGate` ← `github.com/TomHaridi/PrintGate`（GitHub App 已装，All repositories）；
+2. 进 Builds → **Start new build** → 分支 `main` → 工作流 `PrintGate iOS (unsigned IPA)`；
+3. 约 6 分钟出 artifact，点 `PrintGate-unsigned.ipa` 下载。
+
+### B. GitHub Actions（需先解封账号）
 
 1. 仓库推到 GitHub；
 2. Actions → **Build iOS IPA (Flutter)** → Run workflow；
@@ -78,16 +100,12 @@ cd ../app && PG_BASE=http://127.0.0.1:8099 flutter test test/api_live_test.dart
 
 ### B. Codemagic
 
-1. 把仓库连到 Codemagic，识别到根目录 `codemagic.yaml`；
-2. 选 workflow `ios-unsigned` → Start new build；
-3. 产物在 Artifacts 里。
-
 两条路产出的都是**未签名** IPA，用 Sideloadly / AltStore / 爱思助手用自己的 Apple ID 签一次即可安装
 （免费账号 7 天、付费开发者账号 1 年；自签不需要 App Store 审核）。
 
 ## 已知限制（如实说）
 
-- **iOS 原生部分没法在本机验证**：`flutter analyze` / `flutter test` 覆盖的是 Dart 层；`ios/` 下的 Podfile、签名、真机安装必须第一次在 CI 或 Mac 上跑一遍，可能还要补一两处配置（最常见是 CocoaPods 首次安装）。
+- **iOS 原生部分已跑通编译**：CI 上 `flutter build ios --no-codesign` 成功、Pods 自动安装、产物结构已核验；但**真机安装与运行**仍未验证（需要 iPhone + 自签）。
 - **没有 Mac 就无法真机调试**：日志、崩溃只能靠 `flutter logs`（需 USB）或在 Mac/Xcode 上看。原生底层问题（CallKit、后台任务、蓝牙打印等）仍要回到 Mac。
 - **Android 未验证**：本机没装 Android SDK，`build apk` 没跑过；代码是平台无关的，但插件（image_picker / file_picker）在 Android 上的权限声明还需要实测。
 - **大文件上传**：小程序端超过 8MB 走分片（`/api/mp/upload/init|chunk|complete`）；Flutter 版目前只走直传，服务端默认上限 `maxFileMB`（一般 20MB）。要支持更大的 PDF 需要补分片。
