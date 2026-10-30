@@ -23,18 +23,19 @@ struct MeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
-                    profileCard
+                    // 与 PrintView 同理：擦除复杂卡片的返回类型，避免 body 类型嵌套过深
+                    AnyView(profileCard)
 
                     if user.pending {
-                        DFBanner(icon: "hourglass", message: "账号还在等管理员审批，审批通过后才能打印。", severity: .warning, isDismissible: false, onDismiss: {})
+                        AnyView(DFBanner(icon: "hourglass", message: "账号还在等管理员审批，审批通过后才能打印。", severity: .warning, isDismissible: false, onDismiss: {}))
                     }
 
                     if app.isAdmin {
-                        adminEntry
+                        AnyView(adminEntry)
                     }
 
-                    settingsCard
-                    aboutCard
+                    AnyView(settingsCard)
+                    AnyView(aboutCard)
 
                     DFButton("退出登录", style: .outlined, role: .destructive) {
                         showLogout = true

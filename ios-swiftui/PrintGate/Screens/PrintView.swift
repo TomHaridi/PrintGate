@@ -98,12 +98,16 @@ struct PrintView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 14) {
-                    modeBar
-                    contentCard
-                    printerCard
-                    commonCard
-                    advancedCard
-                    historyHint
+                    // 用 AnyView 擦除每个卡片的返回类型：body 的返回类型原本是
+                    // 6 个卡片完整嵌套类型的内联（20+ 层），运行时实例化会
+                    // 在 swift_getTypeByMangledName 递归解析时栈溢出（SIGSEGV）。
+                    // 擦除后 body 只剩浅层 VStack<TupleView<AnyView...>>。
+                    AnyView(modeBar)
+                    AnyView(contentCard)
+                    AnyView(printerCard)
+                    AnyView(commonCard)
+                    AnyView(advancedCard)
+                    AnyView(historyHint)
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 6)
