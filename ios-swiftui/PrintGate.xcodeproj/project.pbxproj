@@ -97,8 +97,7 @@
 				00000000000000000000000F /* PrintGateApp.swift */,
 				00000000000000000000004E /* Screens */,
 				000000000000000000000050 /* Theme */,
-				000000000000000000000035 /* Assets.xcassets */
-				000000000000000000000037 /* Info.plist */
+				000000000000000000000037 /* Info.plist */,
 			);
 			path = PrintGate;
 			sourceTree = "<group>";

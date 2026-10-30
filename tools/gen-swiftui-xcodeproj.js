@@ -208,8 +208,7 @@ ${sub.join('\n')}
 
   const appChildren = [];
   emit(tree, appChildren);
-  appChildren.push(`\t\t\t\t${assetsRef} /* Assets.xcassets */`);
-  appChildren.push(`\t\t\t\t${infoRef} /* Info.plist */`);
+  appChildren.push(`\t\t\t\t${infoRef} /* Info.plist */,`);
 
   const srcBuildFiles = swiftFiles.map((f) => `\t\t\t\t${buildFile[f.path]} /* ${f.name} in Sources */,`).join('\n');
   buildFileLines.push(`\t\t${pkgBuildFile} /* ${PKG_NAME} in Frameworks */ = {isa = PBXBuildFile; productRef = ${pkgProduct} /* ${PKG_NAME} */; };`);
