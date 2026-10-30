@@ -317,23 +317,19 @@ class _AdminFullSettingsPageState extends State<AdminFullSettingsPage> {
       );
     }
     if (v is num) {
+      // 不在 build 里 new 控制器（会每次重建都丢焦点），点一下弹框改
       return ListTile(
         title: Text(_label(key), style: const TextStyle(fontSize: 14)),
         subtitle: Text(key, style: TextStyle(fontSize: 11.5, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-        trailing: SizedBox(
-          width: 96,
-          child: TextField(
-            controller: TextEditingController(text: '$v'),
-            keyboardType: TextInputType.number,
-            textAlign: TextAlign.right,
-            decoration: const InputDecoration(isDense: true),
-            onSubmitted: (t) {
-              final n = int.tryParse(t.trim());
-              if (n != null) setState(() => _settings[key] = n);
-            },
-            onTapOutside: (_) => FocusScope.of(context).unfocus(),
-          ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('$v', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+            const SizedBox(width: 6),
+            const Icon(Icons.edit_outlined, size: 18),
+          ],
         ),
+        onTap: () => _editNumber(key, v),
       );
     }
     return ListTile(
@@ -342,6 +338,33 @@ class _AdminFullSettingsPageState extends State<AdminFullSettingsPage> {
       trailing: const Icon(Icons.edit_outlined, size: 18),
       onTap: () => _editString(key, '$v'),
     );
+  }
+
+  Future<void> _editNumber(String key, num current) async {
+    final ctrl = TextEditingController(text: '$current');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(_label(key)),
+        content: TextField(
+          controller: ctrl,
+          keyboardType: TextInputType.number,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: '数值'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('确定')),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final n = num.tryParse(ctrl.text.trim());
+    if (n == null) {
+      _toast('请输入数字');
+      return;
+    }
+    setState(() => _settings[key] = current is int ? n.toInt() : n);
   }
 
   Future<void> _editString(String key, String current) async {
