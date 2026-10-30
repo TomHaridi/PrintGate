@@ -318,7 +318,7 @@ struct ProfileSheet: View {
             .dfNavigationBar(title: "个人资料", displayMode: .inline) {
                 DFButton("关闭") { dismiss() }.dfButtonStyle(.ghost)
             }
-            .photosPicker(isPresented: $showPhoto, selection: $photoItem, maxSelectionCount: 1, matching: .images)
+            .photosPicker(isPresented: $showPhoto, selection: $photoItem, matching: .images)
             .onChange(of: photoItem) { _, item in
                 Task { await uploadAvatar(item) }
             }

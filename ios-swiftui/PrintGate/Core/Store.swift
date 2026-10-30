@@ -28,7 +28,7 @@ final class Store {
     /// 0 跟随系统 1 浅色 2 深色
     var themeMode: Int
 
-    private nonisolated init() {
+    private init() {
         baseUrl = d.string(forKey: Key.base) ?? ""
         token = d.string(forKey: Key.token) ?? ""
         history = d.stringArray(forKey: Key.history) ?? []
