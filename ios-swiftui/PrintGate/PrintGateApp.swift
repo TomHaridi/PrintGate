@@ -5,6 +5,7 @@ import DesignFoundation
 struct PrintGateApp: App {
     @State private var app = AppModel()
     @State private var store = Store.shared
+    @State private var inbox = ImportInbox.shared
 
     init() {
         CrashReporter.install()
@@ -15,6 +16,7 @@ struct PrintGateApp: App {
             RootView()
                 .environment(app)
                 .environment(store)
+                .environment(inbox)
                 .appTheme(AppTheme(rawValue: store.themeID) ?? .pg)
                 .preferredColorScheme(colorScheme)
                 .dfToast()
@@ -51,6 +53,10 @@ struct RootView: View {
                 crashInfo = info
                 CrashReporter.clear()
             }
+        }
+        // 微信 / 文件 App 里「用其他应用打开 → PrintGate」会走这里
+        .onOpenURL { url in
+            inbox.receive(url)
         }
         .alert("检测到上次崩溃", isPresented: Binding(
             get: { crashInfo != nil },

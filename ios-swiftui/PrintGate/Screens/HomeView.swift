@@ -3,6 +3,7 @@ import DesignFoundation
 
 struct HomeView: View {
     @Environment(AppModel.self) private var app
+    @Environment(ImportInbox.self) private var inbox
     @State private var tab = "print"
 
     private let items = [
@@ -22,5 +23,9 @@ struct HomeView: View {
             }
         }
         .task { await app.refreshMe() }
+        // 从微信 / 其他 App 送文件进来时自动跳到文件页上传
+        .onChange(of: inbox.urls.count) { _, n in
+            if n > 0 { tab = "files" }
+        }
     }
 }

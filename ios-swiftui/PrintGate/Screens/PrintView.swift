@@ -84,7 +84,6 @@ struct PrintView: View {
     @State private var idFront: PickedImage?
     @State private var idBack: PickedImage?
 
-    @State private var photoItems: [PhotosPickerItem] = []
     @State private var photoTarget: PhotoTarget = .invoice
     @State private var showPhotos = false
     @State private var showFileImport = false
@@ -96,50 +95,59 @@ struct PrintView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 14) {
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(spacing: 14) {
                     // 用 AnyView 擦除每个卡片的返回类型：body 的返回类型原本是
                     // 6 个卡片完整嵌套类型的内联（20+ 层），运行时实例化会
                     // 在 swift_getTypeByMangledName 递归解析时栈溢出（SIGSEGV）。
                     // 擦除后 body 只剩浅层 VStack<TupleView<AnyView...>>。
-                    AnyView(modeBar)
-                    AnyView(contentCard)
-                    AnyView(printerCard)
-                    AnyView(commonCard)
-                    AnyView(advancedCard)
-                    AnyView(historyHint)
+                        AnyView(modeBar)
+                        AnyView(contentCard)
+                        AnyView(printerCard)
+                        AnyView(commonCard)
+                        AnyView(advancedCard)
+                        AnyView(historyHint)
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 6)
+                    .padding(.bottom, 18)
                 }
-                .padding(.horizontal, 14)
-                .padding(.top, 6)
-                .padding(.bottom, 18)
+                // 底栏直接放在 VStack 里固定住：之前用 safeAreaInset 挂在 ScrollView 上，
+            // 和外层 Tab 栏的 safeAreaInset 嵌套后在 iOS 26 上会被顶出屏幕（打印键消失）。
+            submitBar
+        }
+        .screenBackground()
+        .dfNavigationBar(title: "打印", displayMode: .inline) {
+            Button {
+                Task { await loadPrinters() }
+            } label: {
+                DFIcon("arrow.clockwise", size: 18)
             }
-            .screenBackground()
-            .dfNavigationBar(title: "打印", displayMode: .inline) {
-                Button {
-                    Task { await loadPrinters() }
-                } label: {
-                    DFIcon("arrow.clockwise", size: 18)
-                }
+        }
+        .dfSheet(isPresented: $showLibrary) {
+            FilePickerSheet { f in
+                picked = f
+                mode = .file
             }
-            .safeAreaInset(edge: .bottom) {
-                submitBar
-            }
-            .dfSheet(isPresented: $showLibrary) {
-                FilePickerSheet { f in
-                    picked = f
-                    mode = .file
-                }
-            }
-            .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 9, matching: .images)
-            .fileImporter(isPresented: $showFileImport, allowedContentTypes: [.pdf, .image, .plainText, .data], allowsMultipleSelection: false) { result in
-                Task { await handleImport(result) }
-            }
-            .onChange(of: photoItems) { _, items in
-                Task { await loadPhotos(items) }
-            }
-            .task {
-                if printers.isEmpty { await loadPrinters() }
-            }
+        }
+        .sheet(isPresented: $showPhotos) {
+            MediaPicker(
+                allowVideo: false,
+                selectionLimit: photoTarget == .invoice ? 9 : 1,
+                onPick: { picked in
+                    showPhotos = false
+                    applyMedia(picked)
+                },
+                onCancel: { showPhotos = false }
+            )
+        }
+        .fileImporter(isPresented: $showFileImport, allowedContentTypes: [.pdf, .image, .plainText, .data], allowsMultipleSelection: false) { result in
+            Task { await handleImport(result) }
+        }
+        .task {
+            if printers.isEmpty { await loadPrinters() }
+        }
         }
     }
 
@@ -246,7 +254,6 @@ struct PrintView: View {
             HStack(spacing: 10) {
                 DFButton("添加发票图") {
                     photoTarget = .invoice
-                    photoItems = []
                     showPhotos = true
                 }
                 .dfButtonStyle(.outlined)
@@ -271,12 +278,10 @@ struct PrintView: View {
         HStack(spacing: 12) {
             idSlot("正面", idFront) {
                 photoTarget = .front
-                photoItems = []
                 showPhotos = true
             }
             idSlot("反面", idBack) {
                 photoTarget = .back
-                photoItems = []
                 showPhotos = true
             }
         }
@@ -501,7 +506,7 @@ struct PrintView: View {
             }
             .padding(.horizontal, 16)
             .padding(.vertical, 10)
-            .background(.bar)
+            .background(theme.colors.surface)
         }
     }
 
@@ -524,23 +529,20 @@ struct PrintView: View {
         }
     }
 
-    private func loadPhotos(_ items: [PhotosPickerItem]) async {
-        guard !items.isEmpty else { return }
-        var loaded: [PickedImage] = []
-        for (i, item) in items.enumerated() {
-            if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data) {
-                loaded.append(PickedImage(image: img, name: "照片\(i + 1).jpg"))
-            }
+    private func applyMedia(_ items: [PickedMedia]) {
+        let loaded = items.compactMap { m -> PickedImage? in
+            guard let img = UIImage(data: m.data) else { return nil }
+            return PickedImage(image: img, name: m.filename)
         }
+        guard !loaded.isEmpty else { return }
         switch photoTarget {
         case .invoice:
-            invoices.append(contentsOf: loaded.prefix(9 - invoices.count))
+            invoices.append(contentsOf: loaded.prefix(max(0, 9 - invoices.count)))
         case .front:
-            if let f = loaded.first { idFront = f }
+            idFront = loaded.first
         case .back:
-            if let f = loaded.first { idBack = f }
+            idBack = loaded.first
         }
-        photoItems = []
     }
 
     private func handleImport(_ result: Result<[URL], Error>) async {

@@ -7,13 +7,13 @@ import DesignFoundation
 struct FilesView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dfTheme) private var theme
+    @Environment(ImportInbox.self) private var inbox
 
     @State private var files: [PgFileItem] = []
     @State private var loading = true
     @State private var busy = false
     @State private var busyText = ""
 
-    @State private var photoItems: [PhotosPickerItem] = []
     @State private var showPhotos = false
     @State private var showImport = false
     @State private var preview: PgFileItem?
@@ -30,12 +30,34 @@ struct FilesView: View {
                     }
                     .padding(16)
                 } else if files.isEmpty {
-                    EmptyHint(icon: "folder", title: "还没有文件", message: "上传 PDF / 图片 / Office 文档后就能在这里打印", actionTitle: "上传文件") {
-                        showImport = true
+                    VStack(spacing: 14) {
+                        EmptyHint(icon: "folder", title: "还没有文件", message: "上传 PDF / 图片 / 视频 / Office 文档后就能在这里打印", actionTitle: "上传文件") {
+                            showImport = true
+                        }
+                        HStack(spacing: 10) {
+                            DFButton("从相册多选") { showPhotos = true }
+                                .dfButtonStyle(.outlined)
+                            DFButton("从微信导入") { showImport = true }
+                            Spacer()
+                        }
+                        .padding(.horizontal, 16)
+                        DFText("在微信里长按文件 →「用其他应用打开」也可以直接送到这里。", scale: .caption)
+                            .dfTextViewStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
                     }
+                    .padding(.bottom, 24)
                 } else {
                     ScrollView {
                         LazyVStack(spacing: 10) {
+                            HStack(spacing: 10) {
+                                DFButton("相册多选") { showPhotos = true }
+                                    .dfButtonStyle(.outlined)
+                                DFButton("微信 / 文件") { showImport = true }
+                                    .dfButtonStyle(.ghost)
+                                Spacer()
+                            }
+                            .padding(.horizontal, 14)
                             ForEach(files) { f in
                                 fileCard(f)
                             }
@@ -47,8 +69,17 @@ struct FilesView: View {
             }
             .screenBackground()
             .dfNavigationBar(title: "文件", displayMode: .inline) {
-                Button {
-                    showPhotos = true
+                Menu {
+                    Button {
+                        showPhotos = true
+                    } label: {
+                        Label("从相册选择（图片 / 视频）", systemImage: "photo.on.rectangle")
+                    }
+                    Button {
+                        showImport = true
+                    } label: {
+                        Label("从微信 / 文件导入", systemImage: "folder")
+                    }
                 } label: {
                     DFIcon("plus", size: 18)
                         .iconTapTarget()
@@ -67,12 +98,19 @@ struct FilesView: View {
                 }
             }
             .refreshable { await load() }
-            .photosPicker(isPresented: $showPhotos, selection: $photoItems, maxSelectionCount: 9, matching: .images)
-            .fileImporter(isPresented: $showImport, allowedContentTypes: [.pdf, .image, .plainText, .data], allowsMultipleSelection: true) { result in
-                Task { await importFiles(result) }
+            .sheet(isPresented: $showPhotos) {
+                MediaPicker(
+                    allowVideo: true,
+                    selectionLimit: 9,
+                    onPick: { picked in
+                        showPhotos = false
+                        Task { await uploadMedia(picked) }
+                    },
+                    onCancel: { showPhotos = false }
+                )
             }
-            .onChange(of: photoItems) { _, items in
-                Task { await uploadPhotos(items) }
+            .fileImporter(isPresented: $showImport, allowedContentTypes: [.pdf, .image, .movie, .plainText, .data], allowsMultipleSelection: true) { result in
+                Task { await importFiles(result) }
             }
             .dfSheet(isPresented: Binding(
                 get: { preview != nil },
@@ -97,7 +135,10 @@ struct FilesView: View {
                     ]
                 )
             )
-            .task { await load() }
+            .task { await load(); await drainInbox() }
+            .onChange(of: inbox.urls.count) { _, _ in
+                Task { await drainInbox() }
+            }
         }
     }
 
@@ -159,6 +200,32 @@ struct FilesView: View {
         loading = false
     }
 
+    /// 处理从微信 / 其他 App「用其他应用打开」送进来的文件
+    private func drainInbox() async {
+        guard !inbox.urls.isEmpty else { return }
+        let urls = inbox.urls
+        inbox.urls = []
+        busy = true
+        var done = 0
+        for (i, url) in urls.enumerated() {
+            busyText = "导入 \(i + 1)/\(urls.count)…"
+            let got = url.startAccessingSecurityScopedResource()
+            defer { if got { url.stopAccessingSecurityScopedResource() } }
+            do {
+                let data = try Data(contentsOf: url)
+                _ = try await API().upload(data: data, filename: url.lastPathComponent)
+                done += 1
+            } catch {
+                DFToastQueue.shared.show(text: "\(url.lastPathComponent) 失败：\(pgMessage(error))", severity: .error)
+            }
+        }
+        busy = false
+        if done > 0 {
+            DFToastQueue.shared.show(text: "已导入 \(done) 个文件", severity: .success)
+            await load()
+        }
+    }
+
     private func delete(_ f: PgFileItem) async {
         do {
             try await API().deleteFile(f.id)
@@ -185,24 +252,22 @@ struct FilesView: View {
         }
     }
 
-    private func uploadPhotos(_ items: [PhotosPickerItem]) async {
+    private func uploadMedia(_ items: [PickedMedia]) async {
         guard !items.isEmpty else { return }
         busy = true
         var done = 0
-        for (i, item) in items.enumerated() {
+        for (i, m) in items.enumerated() {
             busyText = "上传 \(i + 1)/\(items.count)…"
             do {
-                guard let data = try await item.loadTransferable(type: Data.self) else { continue }
-                _ = try await API().upload(data: data, filename: "照片\(Fmt.stamp()).jpg")
+                _ = try await API().upload(data: m.data, filename: m.filename)
                 done += 1
             } catch {
-                DFToastQueue.shared.show(text: "第 \(i + 1) 张失败：\(pgMessage(error))", severity: .error)
+                DFToastQueue.shared.show(text: "第 \(i + 1) 个失败：\(pgMessage(error))", severity: .error)
             }
         }
-        photoItems = []
         busy = false
         if done > 0 {
-            DFToastQueue.shared.show(text: "已上传 \(done) 张", severity: .success)
+            DFToastQueue.shared.show(text: "已上传 \(done) 个", severity: .success)
             await load()
         }
     }
@@ -305,7 +370,10 @@ struct FilePreviewSheet: View {
             .dfNavigationBar(title: file.filename, displayMode: .inline) {
                 DFButton("关闭") { dismiss() }.dfButtonStyle(.ghost)
             }
-            .task { await load() }
+            .task { await load(); await drainInbox() }
+            .onChange(of: inbox.urls.count) { _, _ in
+                Task { await drainInbox() }
+            }
         }
     }
 
