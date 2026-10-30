@@ -1,0 +1,10 @@
+<view class="nav {{dark ? 'theme-dark' : ''}}">
+  <view class="nav-status" style="height: {{statusHeight}}px;"></view>
+  <view class="nav-bar" style="height: {{navHeight}}px; padding-right: {{rightGap}}px;">
+    <view class="nav-back" wx:if="{{showBack || canBack}}" bindtap="onBack">
+      <view class="back-arrow"></view>
+    </view>
+    <view class="nav-title {{center ? 'is-center' : ''}}">{{title}}</view>
+    <view class="nav-right"><slot name="right" /></view>
+  </view>
+</view>

@@ -1,0 +1,109 @@
+<view class="page admin-home {{dark ? 'theme-dark' : ''}}" style="{{primaryStyle}}">
+  <nav-bar title="管理后台" show-back  center />
+
+  <!-- 无权限 -->
+  <view wx:if="{{denied}}" class="denied">
+    <image src="/images/icons/shield.png" mode="aspectFit" />
+    <view class="d-title">仅管理员可用</view>
+    <view class="d-sub">当前账号没有管理员权限。如需管理，请在后台「微信对接」页获取绑定码后，在「我的 → 绑定管理员」完成绑定。</view>
+  </view>
+
+  <block wx:else>
+    <!-- 数据概览（Bento） -->
+    <view class="section-cap">数据概览<text class="cap-extra">下拉刷新</text></view>
+    <view class="bento" wx:if="{{overview}}">
+      <!-- 主卡：待审批，有积压时带告警底色 -->
+      <view class="bento-item bento-half {{overview.pendingUsers > 0 ? 'alert' : ''}}" bindtap="goUsers">
+        <view class="bento-label lg">待审批用户</view>
+        <view class="bento-num big">{{overview.pendingUsers}}</view>
+        <view class="bento-hint" wx:if="{{overview.pendingUsers > 0}}">去授权 →</view>
+        <view class="bento-hint idle" wx:else>全部已处理</view>
+      </view>
+      <view class="bento-item bento-half {{overview.pendingTasks > 0 ? 'alert' : ''}}" bindtap="goApprove">
+        <view class="bento-label lg">待审批任务</view>
+        <view class="bento-num big">{{overview.pendingTasks}}</view>
+        <view class="bento-hint" wx:if="{{overview.pendingTasks > 0}}">去放行 →</view>
+        <view class="bento-hint idle" wx:else>全部已处理</view>
+      </view>
+
+      <!-- 迷你卡 -->
+      <view class="bento-item bento-quarter" bindtap="goApprove">
+        <view class="bento-num sm t-primary">{{overview.printing}}</view>
+        <view class="bento-label">打印中</view>
+      </view>
+      <view class="bento-item bento-quarter" bindtap="goApprove">
+        <view class="bento-num sm">{{overview.todayTasks}}</view>
+        <view class="bento-label">今日任务</view>
+      </view>
+      <view class="bento-item bento-quarter" bindtap="goUsers">
+        <view class="bento-num sm">{{overview.totalUsers}}</view>
+        <view class="bento-label">注册用户</view>
+      </view>
+      <view class="bento-item bento-quarter">
+        <view class="bento-num sm">{{overview.files}}</view>
+        <view class="bento-label">留存文件</view>
+      </view>
+
+      <!-- 状态卡：左标签、右数值 -->
+      <view class="bento-item bento-row" bindtap="goPrinters">
+        <view class="bento-side"><view class="bento-dot"></view><text class="bento-label lg">打印机</text></view>
+        <view class="bento-side"><text class="bento-num sm t-primary">{{overview.printerCount}}</text><text class="unit">台</text></view>
+      </view>
+      <view class="bento-item bento-row">
+        <view class="bento-side"><view class="bento-dot {{overview.cupsOk ? '' : 'bad'}}"></view><text class="bento-label lg">CUPS 服务</text></view>
+        <text class="bento-badge {{overview.cupsOk ? '' : 'bad'}}">{{overview.cupsOk ? '正常' : '异常'}}</text>
+      </view>
+    </view>
+    <!-- 管理功能 -->
+    <view class="section-cap">管理功能</view>
+    <view class="entry-grid">
+      <view class="entry-card" bindtap="goUsers">
+        <view class="entry-icon ic-soft"><image src="/images/icons/users.png" mode="aspectFit" /></view>
+        <view class="grow">
+          <view class="entry-title">用户审批</view>
+          <view class="entry-sub">授权 / 拒绝 / 拉黑</view>
+        </view>
+      </view>
+      <view class="entry-card" bindtap="goApprove">
+        <view class="entry-icon ic-warn"><image src="/images/icons/clipboard.png" mode="aspectFit" /></view>
+        <view class="grow">
+          <view class="entry-title">任务审批</view>
+          <view class="entry-sub">放行 / 拒绝</view>
+        </view>
+      </view>
+      <view class="entry-card" bindtap="goPrinters">
+        <view class="entry-icon ic-info"><image src="/images/icons/print.png" mode="aspectFit" /></view>
+        <view class="grow">
+          <view class="entry-title">打印机</view>
+          <view class="entry-sub">暂停 / 恢复 / 默认</view>
+        </view>
+      </view>
+      <view class="entry-card" bindtap="goSettings">
+        <view class="entry-icon ic-soft"><image src="/images/icons/sliders.png" mode="aspectFit" /></view>
+        <view class="grow">
+          <view class="entry-title">系统设置</view>
+          <view class="entry-sub">限额 / 审批 / 保留</view>
+        </view>
+      </view>
+      <view class="entry-card" bindtap="goHistory">
+        <view class="entry-icon ic-info"><image src="/images/icons/clock.png" mode="aspectFit" /></view>
+        <view class="grow">
+          <view class="entry-title">打印历史</view>
+          <view class="entry-sub">查看全部 · 清除记录</view>
+        </view>
+      </view>
+    </view>
+
+    <!-- 打印机状态 -->
+    <view class="section-cap">打印机状态<text class="cap-extra">{{printers.length}} 台</text></view>
+    <view class="card">
+      <view class="mp-row" wx:for="{{printers}}" wx:key="name">
+        <view class="mp-dot {{item._stateKind === 'danger' ? 'dot-danger' : (item._stateKind === 'primary' ? 'dot-primary' : 'dot-ok')}}"></view>
+        <view class="mp-name ellipsis">{{item.name}}</view>
+        <status-tag text="{{item._state}}" kind="{{item._stateKind}}" />
+        <view class="mp-default" wx:if="{{item.isDefault}}">默认</view>
+      </view>
+      <view class="mp-empty" wx:if="{{printers.length === 0}}">暂无打印机，请到网页管理台添加</view>
+    </view>
+  </block>
+</view>

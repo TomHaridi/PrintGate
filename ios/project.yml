@@ -1,0 +1,53 @@
+name: PrintGate
+options:
+  bundleIdPrefix: com.printgate
+  deploymentTarget:
+    iOS: "14.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    SWIFT_VERSION: "5.0"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    # 本地构建要签名时，把 DEVELOPMENT_TEAM 填成自己的 Team ID；
+    # 出未签名 IPA 时由 build 脚本传 CODE_SIGNING_ALLOWED=NO 覆盖。
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+
+targets:
+  PrintGate:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.printgate.app
+        PRODUCT_NAME: PrintGate
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        SUPPORTS_MACCATALYST: NO
+        # WKWebView 里加载局域网 http，需要在 Info.plist 开 ATS 例外（已配）
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: PrintGate
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UIUserInterfaceStyle: Automatic
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSCameraUsageDescription: 拍照后直接上传打印，照片不会保存到相册。
+        NSPhotoLibraryUsageDescription: 从相册选择图片上传打印。
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          # PrintGate 常部署在局域网 http://192.168.x.x:8080，WKWebView 同样受 ATS 约束，
+          # 所以这里放开任意加载；换成 https 域名后可以删掉这一整段。
+          NSAllowsArbitraryLoads: true
+          NSAllowsLocalNetworking: true

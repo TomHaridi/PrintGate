@@ -1,0 +1,44 @@
+/* 自包含 token：与 app.wxss 一致，保证组件内暗夜可靠 */
+.mask {
+  --pg-mask: rgba(22, 38, 46, 0.5);
+  --pg-card: #FFFFFF;
+  --pg-ink: #16262E;
+  --pg-ink-2: #45555E;
+  --pg-fill: #EFF2F4;
+  --pg-danger: #E4573D;
+  --pg-r-l: 28rpx;
+  --pg-r-m: 20rpx;
+}
+.mask.theme-dark {
+  --pg-mask: rgba(0, 0, 0, 0.62);
+  --pg-card: #1A242A;
+  --pg-ink: #E8EEF0;
+  --pg-ink-2: #A9B8BD;
+  --pg-fill: #222F36;
+  --pg-danger: #F0705A;
+}
+.mask {
+  position: fixed; inset: 0; z-index: 1000;
+  background: var(--pg-mask);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 60rpx;
+}
+.dlg {
+  width: 100%; background: var(--pg-card); border-radius: var(--pg-r-l);
+  padding: 44rpx 36rpx 28rpx;
+  animation: pop 0.18s ease-out;
+}
+@keyframes pop { from { transform: scale(0.9); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
+.dlg-title { font-size: 32rpx; font-weight: 600; text-align: center; color: var(--pg-ink); }
+.dlg-content {
+  font-size: 27rpx; color: var(--pg-ink-2); text-align: center;
+  margin-top: 20rpx; line-height: 1.6; word-break: break-all;
+}
+.dlg-actions { display: flex; gap: 20rpx; margin-top: 40rpx; }
+.dlg-btn {
+  flex: 1; height: 80rpx; line-height: 80rpx; text-align: center;
+  border-radius: 16rpx; font-size: 29rpx; font-weight: 600;
+}
+.dlg-cancel { background: var(--pg-fill); color: var(--pg-ink-2); }
+.dlg-ok { background: var(--pg-primary, #0C8B80); color: #fff; }
+.dlg-ok-danger { background: var(--pg-danger); color: #fff; }

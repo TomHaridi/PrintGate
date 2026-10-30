@@ -1,0 +1,57 @@
+<view class="page admin-users {{dark ? 'theme-dark' : ''}}" style="{{primaryStyle}}">
+  <nav-bar title="用户管理" show-back  center />
+
+  <search-bar placeholder="搜索昵称 / 微信号 / 手机号 / 姓名" bind:search="onSearch" />
+
+  <view class="card filter-card">
+    <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="tabs">
+      <view class="tab-wrap">
+        <view class="tab {{tab === item.key ? 'on' : ''}}" wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="switchTab">{{item.label}}</view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view wx:if="{{denied}}" class="denied-tip">仅管理员可查看用户列表</view>
+  <view wx:elif="{{loading}}" class="loading">加载中…</view>
+
+  <block wx:elif="{{users.length > 0}}">
+    <view class="u-row" wx:for="{{users}}" wx:key="id">
+      <view class="u-head">
+        <image class="u-avatar" src="{{item.avatar}}" mode="aspectFill" wx:if="{{item.avatar}}" />
+        <view class="u-avatar u-avatar-ph" wx:else>{{item._initial}}</view>
+        <view class="u-title">
+          <view class="u-name ellipsis">{{item.nickname || '未命名'}}</view>
+          <view class="u-sub ellipsis">{{item._role}} · 最近登录 {{item._lastLogin}}</view>
+        </view>
+        <status-tag text="{{item._state}}" kind="{{item._stateKind}}" dot />
+      </view>
+
+      <view class="u-meta" wx:if="{{item.wechat_id || item.phone || item.real_name}}">
+        <text wx:if="{{item.wechat_id}}">微信号：{{item.wechat_id}}</text>
+        <text wx:if="{{item.phone}}">手机：{{item.phone}}</text>
+        <text wx:if="{{item.real_name}}">姓名：{{item.real_name}}</text>
+      </view>
+      <view class="u-note" wx:if="{{item.apply_note}}">申请说明：{{item.apply_note}}</view>
+
+      <view class="u-acts">
+        <view class="u-btn u-btn-ok" wx:if="{{item.status === 'pending' || item.status === 'rejected'}}" bindtap="askAction" data-id="{{item.id}}" data-action="approve">授权</view>
+        <view class="u-btn u-btn-warn" wx:if="{{item.status === 'pending'}}" bindtap="askAction" data-id="{{item.id}}" data-action="reject">拒绝</view>
+        <view class="u-btn u-btn-warn" wx:if="{{item.status === 'approved'}}" bindtap="askAction" data-id="{{item.id}}" data-action="block">拉黑</view>
+        <view class="u-btn u-btn-ok" wx:if="{{item.status === 'blocked'}}" bindtap="askAction" data-id="{{item.id}}" data-action="unblock">恢复</view>
+        <view class="u-btn u-btn-del" bindtap="askAction" data-id="{{item.id}}" data-action="delete">删除</view>
+      </view>
+    </view>
+  </block>
+
+  <view wx:else class="empty-tip">没有符合条件的用户</view>
+
+  <pg-dialog
+    visible="{{actionVisible}}"
+    title="{{actionTitle}}"
+    content="确认对「{{actionTarget.nickname}}」执行该操作？"
+    ok-text="{{actionOkText}}"
+    danger="{{actionDanger}}"
+    bind:cancel="closeAction"
+    bind:ok="confirmAction"
+  />
+</view>

@@ -1,0 +1,48 @@
+/* 自包含 token：与 app.wxss 一致，保证组件内暗夜可靠 */
+.mask {
+  --pg-mask: rgba(22, 38, 46, 0.5);
+  --pg-card: #FFFFFF;
+  --pg-ink: #16262E;
+  --pg-ink-2: #45555E;
+  --pg-fill: #EFF2F4;
+}
+.mask.theme-dark {
+  --pg-mask: rgba(0, 0, 0, 0.62);
+  --pg-card: #1A242A;
+  --pg-ink: #E8EEF0;
+  --pg-ink-2: #A9B8BD;
+  --pg-fill: #222F36;
+}
+.mask {
+  position: fixed; inset: 0; z-index: 2000;
+  background: var(--pg-mask);
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 60rpx;
+}
+.dialog {
+  width: 100%; background: var(--pg-card); border-radius: 28rpx; padding: 44rpx 36rpx 28rpx;
+}
+.title { font-size: 32rpx; font-weight: 600; text-align: center; color: var(--pg-ink); }
+.body { font-size: 27rpx; color: var(--pg-ink-2); line-height: 1.7; margin-top: 20rpx; }
+.link { color: var(--pg-primary, #0C8B80); }
+.actions { display: flex; gap: 20rpx; margin-top: 40rpx; }
+.btn { flex: 1; height: 80rpx; line-height: 80rpx; text-align: center; border-radius: 16rpx; font-size: 29rpx; font-weight: 600; }
+.cancel { background: var(--pg-fill); color: var(--pg-ink-2); }
+.ok { background: var(--pg-primary, #0C8B80); color: #fff; }
+/* 点击反馈：确认 tap 已生效，避免「按了没反应」被误判为按钮不可点 */
+.btn-hover { opacity: 0.75; }
+.ok-hover { opacity: 0.82; }
+
+/* 「同意」必须是原生 button（open-type="agreePrivacyAuthorization"），
+   这里把微信给 button 的默认边框 / 内边距 / 行高全部抹平，视觉上与「拒绝」一致 */
+button.btn {
+  padding: 0;
+  margin: 0;
+  border-radius: 16rpx;
+  font-size: 29rpx;
+  line-height: 80rpx;
+  font-weight: 600;
+  background: var(--pg-primary, #0C8B80);
+  color: #ffffff;
+}
+button.btn::after { border: none; }

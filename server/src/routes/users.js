@@ -8,8 +8,10 @@ const config = require('../config');
 const fsutil = require('../fsutil');
 const orphans = require('../orphans');
 const { db, logAudit, nowISO } = require('../db');
+const { intId } = require('../idutil');
 const sec = require('../security');
 const { requireAdmin, publicUser } = require('../middleware');
+const acc = require('./account');
 
 const router = express.Router();
 
@@ -33,8 +35,9 @@ const ACTIONS = {
 };
 
 function findUser(id) {
-  const n = parseInt(id, 10);
-  if (!Number.isFinite(n)) return null;
+  // 必须用严格数字校验：parseInt("1e9") === 1，会把 1e9 号用户解析成 1 号
+  const n = intId(id);
+  if (!n) return null;
   return db.prepare('SELECT * FROM users WHERE id = ?').get(n);
 }
 
@@ -323,7 +326,8 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 const QRCode = require('qrcode');
 
 router.post('/users/:id/bind-qr', requireAdmin, async (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = intId(req.params.id);
+  if (!id) return res.status(404).json({ ok: false, msg: '用户不存在' });
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!u) return res.status(404).json({ ok: false, msg: '用户不存在' });
   if (u.role === 'admin') return res.status(400).json({ ok: false, msg: '管理员账号不需要扫码绑定' });
@@ -344,7 +348,8 @@ router.post('/users/:id/bind-qr', requireAdmin, async (req, res) => {
 
 // 后台弹窗轮询：这张票被用掉没有、绑上的是哪个微信
 router.get('/users/:id/bind-status', requireAdmin, (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = intId(req.params.id);
+  if (!id) return res.status(404).json({ ok: false, msg: '用户不存在' });
   const t = db.prepare("SELECT * FROM qr_tickets WHERE kind = 'bind' AND user_id = ? ORDER BY rowid DESC LIMIT 1").get(id);
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!u) return res.status(404).json({ ok: false, msg: '用户不存在' });
@@ -359,7 +364,8 @@ router.get('/users/:id/bind-status', requireAdmin, (req, res) => {
 
 // 解绑：把 openid 换回占位，用户名密码登录不受影响
 router.post('/users/:id/unbind-wechat', requireAdmin, (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = intId(req.params.id);
+  if (!id) return res.status(404).json({ ok: false, msg: '用户不存在' });
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
   if (!u) return res.status(404).json({ ok: false, msg: '用户不存在' });
   if (u.role === 'admin') return res.status(400).json({ ok: false, msg: '管理员账号不支持解绑微信，避免把自己锁在门外' });
@@ -369,6 +375,32 @@ router.post('/users/:id/unbind-wechat', requireAdmin, (req, res) => {
     .run(u.openid, `local_unbound_${id}_${Date.now().toString(36)}`, nowISO(), id);
   logAudit('user_unbind_wechat', `user=${id}`, sec.clientIp(req), 'admin');
   res.json({ ok: true, msg: '已解绑；该微信下次登录会回到这个账号，历史记录不受影响' });
+});
+
+// 管理员重置密码：网页端「忘记密码联系管理员」这条流程之前没有对应接口，
+// 这里补上。不传 password 就生成一个随机强密码，只回显一次。
+router.post('/users/:id/reset-password', requireAdmin, (req, res) => {
+  const id = intId(req.params.id);
+  if (!id) return res.status(404).json({ ok: false, msg: '用户不存在' });
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+  if (!u) return res.status(404).json({ ok: false, msg: '用户不存在' });
+  if (u.role === 'admin') return res.status(400).json({ ok: false, msg: '不支持在这里重置管理员密码，请用后台登录密码流程' });
+
+  const wanted = String((req.body || {}).password || '').trim();
+  let plain = wanted;
+  if (plain) {
+    const err = acc.passwordProblem(plain, plain);
+    if (err) return res.status(400).json({ ok: false, msg: err });
+  } else {
+    // 12 位，去掉容易混淆的字符
+    const pool = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    plain = Array.from({ length: 12 }, () => pool[crypto.randomInt(pool.length)]).join('');
+  }
+
+  db.prepare('UPDATE users SET pass_hash = ?, pwd_changed_at = ?, updated_at = ? WHERE id = ?')
+    .run(sec.hashPassword(plain), nowISO(), nowISO(), id);
+  logAudit('user_reset_password', `user=${id} username=${u.username || u.openid}`, sec.clientIp(req), 'admin');
+  res.json({ ok: true, msg: '密码已重置，旧会话已失效', password: plain, generated: !wanted });
 });
 
 module.exports = router;

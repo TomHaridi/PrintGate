@@ -40,6 +40,8 @@ API_SUITES=(
   bug-hunt2.js
   bug-hunt3.js
   mp-wiring-check.js
+  mp-merge-test.js
+  mp-upload-test.js
 )
 
 UI_SUITES=(
@@ -58,6 +60,8 @@ STATIC_SUITES=(
   check-wxml.js
   mp-page-test.js
   mp-prefs-test.js
+  mp-static-check.js
+  mp-field-check.js
 )
 
 run_one() {

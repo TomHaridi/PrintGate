@@ -31,10 +31,59 @@
     </n-alert>
 
     <div class="layout">
+      <n-card size="small" class="net-card">
+        <template #header>
+          <div class="card-hd">
+            <span class="card-title">网络扫描仪</span>
+            <span class="card-meta">{{ netDevices.length }} 台已配置</span>
+          </div>
+        </template>
+
+        <n-alert v-if="netInfo.advice" :type="netInfo.bridged ? 'warning' : 'success'" :bordered="false" style="margin-bottom: 12px; font-size: 12.5px">
+          {{ netInfo.advice }}
+        </n-alert>
+
+        <div class="net-form">
+          <n-input v-model:value="netName" size="small" placeholder="名称，如 二楼一体机" style="width: 150px" />
+          <n-input v-model:value="netHost" size="small" placeholder="IP 或 IP:端口，如 192.168.1.50" style="flex: 1; min-width: 180px" />
+          <n-button size="small" :loading="probing" @click="probe">探测</n-button>
+          <n-button size="small" type="primary" :loading="adding" @click="addNet">添加</n-button>
+        </div>
+        <div v-if="probeMsg" class="probe-msg" :class="probeOk ? 'ok' : 'bad'">
+          {{ probeMsg }}
+          <div v-if="!probeOk && probeDetail.length" class="probe-steps">
+            <span class="steps-toggle" @click="showSteps = !showSteps">{{ showSteps ? '收起明细' : '查看探测明细' }}</span>
+            <div v-if="showSteps" class="steps-body">
+              <div v-for="(st, i) in probeDetail" :key="i" class="step-row">
+                <span class="step-url">{{ st.url }}</span>
+                <span class="step-res">{{ st.status ? 'HTTP ' + st.status : (st.error || '失败') }}</span>
+              </div>
+              <div v-if="openPorts.length" class="step-row"><span class="step-url">开放端口</span><span class="step-res ok">{{ openPorts.join(' / ') }}</span></div>
+            </div>
+          </div>
+          <n-button v-if="!probeOk && canForce" size="tiny" type="warning" :loading="forcing" style="margin-top: 8px" @click="forceAdd">
+            强制添加（老机型 / WSD）
+          </n-button>
+        </div>
+
+        <div v-if="netDevices.length" class="net-list">
+          <div v-for="d in netDevices" :key="d.name" class="net-row">
+            <span class="net-name">{{ d.name }}</span>
+            <span class="mono grow">{{ d.url }}</span>
+            <n-button size="tiny" quaternary type="error" @click="removeNet(d)">移除</n-button>
+          </div>
+        </div>
+        <div v-else class="muted" style="font-size: 12.5px">还没配置网络扫描仪。填上一体机的 IP 点「添加」，之后它就会出现在下面的设备列表里。</div>
+      </n-card>
+
       <n-card size="small" title="扫描设置">
         <n-form label-placement="top">
           <n-form-item label="扫描设备">
             <n-select v-model:value="form.device" :options="deviceOptions" :disabled="!devices.length" placeholder="未发现设备" @update:value="loadOptions" />
+            <div v-if="currentDevice && currentDevice.url" class="dev-url">
+              地址：<span class="mono">{{ currentDevice.url }}</span>
+              <span v-if="currentDevice.addressKind === 'host'" class="dev-warn">（主机名，容器可能解析不了 → 建议在「网络扫描仪」里填 IP）</span>
+            </div>
           </n-form-item>
           <div class="grid2">
             <n-form-item label="分辨率">
@@ -61,7 +110,23 @@
             <template #icon><n-icon :component="ScanOutline" /></template>
             {{ scanning ? '扫描中…' : '开始扫描' }}
           </n-button>
-          <div v-if="scanError" class="err">{{ scanError }}</div>
+          <div v-if="scanError" class="err">
+            {{ scanError }}
+            <div style="margin-top: 6px">
+              <n-button size="tiny" :loading="selfTesting" @click="runSelfTest">设备自检</n-button>
+            </div>
+          </div>
+          <div v-if="selfTest" class="selftest">
+            <div class="st-line"><b>能否打开</b>{{ selfTest.openable ? '可以' : '打不开' }}</div>
+            <div class="st-line" v-if="selfTest.hint"><b>结论</b>{{ selfTest.hint }}</div>
+            <div class="st-line" v-if="(selfTest.discover || []).length">
+              <b>发现到的地址</b>
+              <div>
+                <div v-for="(d, i) in selfTest.discover" :key="i" class="mono">{{ d.kind }} · {{ d.name }} → {{ d.url }}</div>
+              </div>
+            </div>
+            <div class="st-line" v-if="selfTest.test && selfTest.test.msg"><b>原始输出</b>{{ selfTest.test.msg }}</div>
+          </div>
         </n-form>
       </n-card>
 
@@ -196,11 +261,147 @@ async function remove(r) {
   } catch (e) { message.error(e.message); }
 }
 
+// ---------- 网络扫描仪 ----------
+const netDevices = ref([]);
+const netInfo = ref({});
+const netName = ref('');
+const netHost = ref('');
+const probing = ref(false);
+const adding = ref(false);
+const probeMsg = ref('');
+const probeOk = ref(false);
+const probeDetail = ref([]);
+const openPorts = ref([]);
+const canForce = ref(false);
+const forcing = ref(false);
+const showSteps = ref(false);
+
+async function loadNet() {
+  try {
+    const d = await api.get('/scanners/network');
+    netDevices.value = d.devices || [];
+    netInfo.value = d.network || {};
+  } catch (_) { /* 老版本后端没这个接口时静默 */ }
+}
+
+async function probe() {
+  if (!netHost.value.trim()) return message.warning('先填一体机的 IP');
+  probing.value = true;
+  probeMsg.value = '';
+  try {
+    const d = await api.post('/scanners/network/probe', { host: netHost.value.trim() });
+    probeOk.value = !!d.ok;
+    probeMsg.value = d.msg || (d.ok ? '已连通' : '未连通');
+    probeDetail.value = d.steps || [];
+    openPorts.value = d.open || [];
+    canForce.value = !!d.canForce;
+  } catch (e) {
+    probeOk.value = false;
+    probeMsg.value = e.message || '探测失败';
+  } finally {
+    probing.value = false;
+  }
+}
+
+// 强制添加：探测没通过也被允许，交给 airscan 自己再试（WSD / 私有协议）
+async function forceAdd() {
+  if (!netName.value.trim()) return message.warning('给这台扫描仪起个名字');
+  forcing.value = true;
+  try {
+    const d = await api.post('/scanners/network', { name: netName.value.trim(), host: netHost.value.trim(), force: true });
+    message.success(d.msg || '已添加');
+    netName.value = '';
+    netHost.value = '';
+    probeMsg.value = '';
+    await loadNet();
+    await load();
+  } catch (e) {
+    message.error(e.message || '添加失败');
+  } finally {
+    forcing.value = false;
+  }
+}
+
+async function addNet() {
+  if (!netName.value.trim()) return message.warning('给这台扫描仪起个名字');
+  if (!netHost.value.trim()) return message.warning('先填一体机的 IP');
+  adding.value = true;
+  try {
+    const d = await api.post('/scanners/network', { name: netName.value.trim(), host: netHost.value.trim() });
+    message.success(d.msg || '已添加');
+    netName.value = '';
+    netHost.value = '';
+    probeMsg.value = '';
+    await loadNet();
+    await load();          // 重新枚举，让新设备进「扫描设备」下拉
+  } catch (e) {
+    message.error(e.message || '添加失败');
+  } finally {
+    adding.value = false;
+  }
+}
+
+async function removeNet(d) {
+  try {
+    await api.delete(`/scanners/network/${encodeURIComponent(d.name)}`);
+    message.success('已移除');
+    await loadNet();
+    await load();
+  } catch (e) {
+    message.error(e.message || '移除失败');
+  }
+}
+
+// 设备自检：--test 只打开设备不扫描，能区分「连不上」和「参数不对」
+const selfTest = ref(null);
+const selfTesting = ref(false);
+const currentDevice = computed(() => devices.value.find((d) => d.device === form.device) || null);
+
+async function runSelfTest() {
+  if (!form.device) return;
+  selfTesting.value = true;
+  selfTest.value = null;
+  try {
+    selfTest.value = await api.get(`/scanners/${encodeURIComponent(form.device)}/selftest`);
+  } catch (e) {
+    selfTest.value = { openable: false, hint: e.message || '自检失败', discover: [] };
+  } finally {
+    selfTesting.value = false;
+  }
+}
+
+onMounted(async () => { await loadNet(); });
+
 onMounted(load);
 </script>
 
 <style scoped>
+.dev-url { margin-top: 6px; font-size: 12px; color: #64748b; }
+.dev-warn { color: #b45309; }
+.selftest { margin-top: 10px; padding: 10px 12px; border-radius: 8px; background: #f8fafb; font-size: 12.5px; display: grid; gap: 6px; }
+.st-line { display: flex; gap: 8px; }
+.st-line b { flex: 0 0 76px; color: #475569; font-weight: 600; }
+</style>
+<style scoped>
+.net-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.probe-msg { margin-top: 8px; font-size: 12.5px; line-height: 1.6; }
+.probe-msg.ok { color: #158a63; }
+.probe-msg.bad { color: #b45309; }
+.probe-steps { margin-top: 6px; font-size: 12px; color: #64748b; }
+.steps-toggle { color: #0c8b80; cursor: pointer; text-decoration: underline; }
+.steps-body { margin-top: 6px; background: #f8fafb; border-radius: 8px; padding: 8px 10px; display: grid; gap: 4px; }
+.step-row { display: flex; justify-content: space-between; gap: 12px; }
+.step-url { font-family: ui-monospace, Menlo, monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.step-res { flex: 0 0 auto; color: #b45309; }
+.step-res.ok { color: #158a63; }
+.net-list { margin-top: 10px; display: grid; gap: 6px; }
+.net-row { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 8px; background: #f8fafb; font-size: 12.5px; }
+.net-name { font-weight: 600; color: #0f172a; }
+</style>
+<style scoped>
 .layout { display: grid; grid-template-columns: 400px 1fr; gap: 16px; align-items: start; }
+/* 网络扫描仪横跨两列：输入框和按钮一行放得下 */
+.net-card { grid-column: 1 / -1; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; }
 .records { display: grid; gap: 8px; max-height: 520px; overflow-y: auto; }
 .rec { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 1px solid var(--pg-border); border-radius: 10px; }

@@ -1,0 +1,78 @@
+{
+  "pages": [
+    "pages/login/login",
+    "pages/index/index",
+    "pages/files/files",
+    "pages/tasks/tasks",
+    "pages/mine/mine"
+  ],
+  "networkTimeout": {
+    "request": 30000,
+    "uploadFile": 180000,
+    "downloadFile": 60000
+  },
+  "window": {
+    "navigationStyle": "custom",
+    "backgroundColor": "#F3F5F6",
+    "backgroundTextStyle": "dark",
+    "enablePullDownRefresh": false
+  },
+  "tabBar": {
+    "color": "#9AA8AE",
+    "selectedColor": "#0C8B80",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "打印",
+        "iconPath": "images/tab/print.png",
+        "selectedIconPath": "images/tab/print-active.png"
+      },
+      {
+        "pagePath": "pages/files/files",
+        "text": "文件",
+        "iconPath": "images/tab/doc.png",
+        "selectedIconPath": "images/tab/doc-active.png"
+      },
+      {
+        "pagePath": "pages/tasks/tasks",
+        "text": "记录",
+        "iconPath": "images/tab/clock.png",
+        "selectedIconPath": "images/tab/clock-active.png"
+      },
+      {
+        "pagePath": "pages/mine/mine",
+        "text": "我的",
+        "iconPath": "images/tab/user.png",
+        "selectedIconPath": "images/tab/user-active.png"
+      }
+    ]
+  },
+  "subpackages": [
+    {
+      "root": "packageAdmin",
+      "name": "admin",
+      "pages": [
+        "pages/home/home",
+        "pages/users/users",
+        "pages/approve/approve",
+        "pages/printers/printers",
+        "pages/settings/settings",
+        "pages/history/history"
+      ]
+    }
+  ],
+  "preloadRule": {
+    "pages/mine/mine": {
+      "network": "all",
+      "packages": [
+        "packageAdmin"
+      ]
+    }
+  },
+  "lazyCodeLoading": "requiredComponents",
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "__usePrivacyCheck__": true
+}

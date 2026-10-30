@@ -5,6 +5,12 @@ const path = require('path');
 const fs = require('fs');
 
 const dataDir = process.env.PG_DATA_DIR || process.env.DATA_DIR || '/data';
+// 网络扫描仪（sane-airscan）的设备地址存在数据卷里：容器重建后不用重配。
+// SANE 会按 SANE_CONFIG_DIR 的冒号列表依次找 backend 配置，把 /etc/sane.d 留在后面，
+// 这样 airscan.conf 由我们托管，epson2 等其它后端仍用系统自带配置。
+const saneConfDir = path.join(dataDir, 'sane.d');
+try { fs.mkdirSync(saneConfDir, { recursive: true }); } catch (_) {}
+if (!process.env.SANE_CONFIG_DIR) process.env.SANE_CONFIG_DIR = `${saneConfDir}:/etc/sane.d`;
 try { fs.mkdirSync(dataDir, { recursive: true }); } catch (_) {}
 
 const num = (v, d) => {
@@ -21,6 +27,7 @@ module.exports = {
   uploadDir: path.join(dataDir, 'files'),
   avatarDir: path.join(dataDir, 'avatars'),
   scanDir: path.join(dataDir, 'scans'),
+  saneConfDir,
   dbPath: path.join(dataDir, 'printgate.db'),
   logDir: process.env.PG_LOG_DIR || '/var/log/printgate',
   webRoot: path.join(__dirname, '..', 'public'),

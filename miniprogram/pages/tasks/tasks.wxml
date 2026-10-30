@@ -1,0 +1,42 @@
+<view class="page tasks-page {{dark ? 'theme-dark' : ''}}" style="{{primaryStyle}}">
+  <nav-bar title="打印记录"  center />
+
+  <view class="section-cap">任务列表<text class="cap-extra">实时状态由打印网关同步</text></view>
+
+  <view class="card filter-card">
+    <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="tabs">
+      <view class="tab-wrap">
+        <view class="tab {{tab === item.key ? 'on' : ''}}" wx:for="{{tabs}}" wx:key="key" data-key="{{item.key}}" bindtap="switchTab">{{item.label}}</view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">加载中…</view>
+
+  <block wx:elif="{{tasks.length > 0}}">
+    <view class="task-row" wx:for="{{tasks}}" wx:key="id">
+      <view class="t-head">
+        <status-tag text="{{item._state}}" kind="{{item._stateKind}}" dot />
+        <view class="t-time">{{item._time}}</view>
+      </view>
+      <view class="t-name ellipsis">{{item._name}}</view>
+      <view class="t-meta">{{item._meta}}</view>
+      <view class="t-error" wx:if="{{item._error}}">{{item._error}}</view>
+      <view class="t-foot" wx:if="{{item._canCancel}}">
+        <view class="t-cancel" bindtap="askCancel" data-id="{{item.id}}">取消任务</view>
+      </view>
+    </view>
+  </block>
+
+  <pg-empty wx:else text="暂无打印记录" actionText="去打印" bind:action="goPrint" />
+
+  <pg-dialog
+    visible="{{cancelVisible}}"
+    title="取消任务"
+    content="取消后该任务不会发送到打印机，确定取消？"
+    ok-text="取消任务"
+    danger
+    bind:cancel="onCancelCancel"
+    bind:ok="onCancelOk"
+  />
+</view>

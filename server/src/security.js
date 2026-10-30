@@ -34,7 +34,7 @@ function verifyPassword(plain, stored) {
   }
 }
 
-// 明文口令（如 ADMIN_PASSWORD 环境变量初始化）→ 首次登录后升级为 scrypt
+// 老版本明文密码（迁移自 remote-print.db / ADMIN_PASSWORD）→ 首次登录后升级为 scrypt
 function passwordMatches(plain, stored) {
   if (!stored) return false;
   if (String(stored).startsWith('scrypt$')) return verifyPassword(plain, stored);
@@ -74,7 +74,12 @@ function signAdmin(extra = {}) {
 
 function signUser(user) {
   return jwt.sign(
-    { role: 'miniapp', scope: 'miniapp', uid: user.id, openid: user.openid },
+    {
+      role: 'miniapp', scope: 'miniapp', uid: user.id, openid: user.openid,
+      // 密码版本：改密/重置后旧令牌对不上，中间件直接判失效
+      // 用毫秒时间戳而不是 iat —— iat 只精确到秒，同秒内改密会区分不出来
+      pwdv: user.pwd_changed_at ? Date.parse(user.pwd_changed_at) || 0 : 0
+    },
     jwtSecret(),
     { expiresIn: `${cfg().sessionHours}h` }
   );

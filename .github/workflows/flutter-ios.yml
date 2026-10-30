@@ -1,0 +1,66 @@
+name: Build iOS IPA (Flutter)
+
+# 在 GitHub 的 macOS 机器上编译 Flutter 版客户端，产出「未签名」IPA 作为 artifact。
+# 为什么需要 CI：iOS 的 .app 只能由 Xcode 编译，Windows 上没有替代品（KXBuild 目前邀请制）。
+# 用法：把仓库推到 GitHub → Actions → 这个 workflow → Run workflow。
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'app/**'
+      - '.github/workflows/flutter-ios.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: stable
+          cache: true
+
+      - name: Flutter doctor
+        run: flutter doctor -v
+
+      - name: Pub get
+        working-directory: app
+        run: flutter pub get
+
+      - name: Analyze
+        working-directory: app
+        run: flutter analyze
+
+      - name: Unit tests
+        working-directory: app
+        run: flutter test
+
+      # 不签名：先拿到能装进手机（再用 Sideloadly 自签）的产物，避免要开发者账号
+      - name: Build iOS (no codesign)
+        working-directory: app
+        run: flutter build ios --release --no-codesign
+
+      - name: Package unsigned IPA
+        working-directory: app
+        run: |
+          set -euo pipefail
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          test -d "$APP_PATH" || { echo "找不到 $APP_PATH"; ls -R build/ios | head -50; exit 1; }
+          rm -rf build/Payload build/PrintGate-unsigned.ipa
+          mkdir -p build/Payload
+          cp -R "$APP_PATH" build/Payload/PrintGate.app
+          ( cd build && zip -qry PrintGate-unsigned.ipa Payload )
+          ls -lh build/PrintGate-unsigned.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrintGate-flutter-unsigned-ipa
+          path: app/build/PrintGate-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30

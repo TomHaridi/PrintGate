@@ -1,0 +1,141 @@
+.index-page { padding-bottom: calc(140rpx + env(safe-area-inset-bottom)); }
+
+/* 提示条链接 */
+.n-link { color: var(--pg-primary); font-weight: 600; margin-top: 8rpx; }
+
+/* 上传区 */
+.dropzone {
+  border: 3rpx dashed var(--pg-line); border-radius: var(--pg-r-m);
+  padding: 48rpx 24rpx; display: flex; flex-direction: column; align-items: center;
+  background: var(--pg-card-2);
+}
+.dz-icon { width: 72rpx; height: 72rpx; }
+.dz-title { font-size: 28rpx; color: var(--pg-ink-2); font-weight: 600; margin-top: 12rpx; }
+.dz-sub { font-size: 22rpx; color: var(--pg-ink-3); margin-top: 8rpx; }
+
+.upload-row { display: flex; gap: 16rpx; margin-top: 20rpx; }
+
+/* 文件卡 */
+.file-card { display: flex; align-items: center; }
+.fc-thumb {
+  width: 120rpx; height: 150rpx; border-radius: 14rpx;
+  background: var(--pg-fill); flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 24rpx; color: var(--pg-ink-3); font-weight: 600;
+}
+.fc-ph { background: var(--pg-primary-soft); color: var(--pg-primary); }
+.fc-info { flex: 1; min-width: 0; margin-left: 20rpx; }
+.fc-name { font-size: 28rpx; color: var(--pg-ink); font-weight: 500; }
+.fc-meta { font-size: 22rpx; color: var(--pg-ink-3); margin-top: 10rpx; }
+.fc-acts { display: flex; flex-direction: column; gap: 12rpx; flex-shrink: 0; }
+.fc-btn {
+  font-size: 24rpx; color: var(--pg-primary);
+  background: var(--pg-primary-soft); border-radius: 10rpx;
+  padding: 10rpx 22rpx; text-align: center;
+}
+.fc-btn-del { color: var(--pg-danger); background: var(--pg-danger-soft); }
+
+/* 打印机横滚 */
+.printer-scroll { width: 100%; }
+.p-wrap { display: flex; gap: 20rpx; padding: 4rpx 4rpx 8rpx; }
+.p-card {
+  width: 220rpx; flex-shrink: 0;
+  background: var(--pg-card-2); border: 3rpx solid var(--pg-line); border-radius: 18rpx;
+  padding: 20rpx; position: relative;
+}
+.p-card.on { border-color: var(--pg-primary); background: var(--pg-primary-softer); }
+.p-name { font-size: 26rpx; font-weight: 600; color: var(--pg-ink); }
+.p-state { margin-top: 12rpx; }
+.p-default {
+  position: absolute; right: 0; top: 0;
+  background: var(--pg-primary); color: var(--pg-on-primary); font-size: 18rpx;
+  padding: 4rpx 12rpx; border-radius: 0 14rpx 0 12rpx;
+}
+
+/* 参数行 */
+.opt-row {
+  display: flex; align-items: center;
+  padding: 18rpx 0;
+}
+.opt-row + .opt-row { border-top: 2rpx solid var(--pg-line); }
+.opt-label { font-size: 26rpx; color: var(--pg-ink-2); width: 140rpx; flex-shrink: 0; }
+.opt-input {
+  flex: 1; min-width: 0; text-align: right;
+  font-size: 26rpx; color: var(--pg-ink);
+  background: var(--pg-fill); border-radius: 10rpx;
+  padding: 12rpx 18rpx;
+}
+
+/* 底部条 */
+.footer-btn { width: 300rpx; flex-shrink: 0; }
+
+/* ===== 四模式新增样式 ===== */
+/* 模式 Tab */
+.tabs { white-space: nowrap; }
+.tab-wrap { display: inline-flex; gap: 8rpx; padding: 4rpx 0; }
+.tab {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 64rpx; padding: 0 28rpx; border-radius: 14rpx;
+  font-size: 26rpx; color: var(--pg-ink-2); background: var(--pg-fill);
+  flex-shrink: 0;
+}
+.tab.on { background: var(--pg-primary-soft); color: var(--pg-primary); font-weight: 600; }
+
+/* 文字速印 */
+.text-area {
+  width: 100%; min-height: 220rpx; box-sizing: border-box;
+  background: var(--pg-fill); border-radius: 16rpx;
+  padding: 20rpx 24rpx; margin-top: 20rpx;
+  font-size: 28rpx; color: var(--pg-ink); line-height: 1.6;
+}
+.compose-row { display: flex; align-items: center; margin-top: 20rpx; gap: 16rpx; }
+
+/* 发票合排 */
+.thumbs { display: flex; flex-wrap: wrap; gap: 16rpx; margin-top: 20rpx; }
+.thumb { position: relative; width: 180rpx; height: 180rpx; border-radius: 12rpx; overflow: hidden; background: var(--pg-fill); }
+.thumb-img { width: 100%; height: 100%; }
+.thumb-del {
+  position: absolute; top: 0; right: 0; width: 44rpx; height: 44rpx;
+  background: rgba(0,0,0,0.55); color: #fff; border-radius: 0 0 0 12rpx;
+  display: flex; align-items: center; justify-content: center; font-size: 28rpx;
+}
+
+/* 身份证 */
+.id-grid { display: flex; flex-direction: column; gap: 16rpx; }
+.id-slot {
+  position: relative; width: 100%; height: 320rpx; border-radius: 16rpx; overflow: hidden;
+  background: var(--pg-fill); border: 3rpx dashed var(--pg-line);
+  display: flex; align-items: center; justify-content: center;
+}
+.id-img { width: 100%; height: 100%; }
+.id-ph { font-size: 26rpx; color: var(--pg-ink-3); }
+.id-del {
+  position: absolute; top: 0; right: 0; width: 48rpx; height: 48rpx;
+  background: rgba(0,0,0,0.55); color: #fff; border-radius: 0 0 0 16rpx;
+  display: flex; align-items: center; justify-content: center; font-size: 30rpx;
+}
+
+/* 打印预览 */
+.preview-img { width: 100%; border-radius: 12rpx; background: #fff; }
+.preview-ph {
+  padding: 80rpx 0; text-align: center; font-size: 24rpx; color: var(--pg-ink-3);
+}
+.preview-acts { display: flex; gap: 16rpx; margin-top: 20rpx; }
+
+/* 离屏合成画布：不可见但保留尺寸 */
+.compose-canvas {
+  position: fixed; left: -9999rpx; top: -9999rpx;
+  width: 1240px; height: 1754px;
+}
+
+/* 可折叠卡片：右侧摘要 + 箭头 */
+.ch-toggle { display: flex; align-items: center; gap: 10rpx; }
+.ch-sum { font-size: 22rpx; color: var(--pg-ink-3); }
+.chev { font-size: 30rpx; color: var(--pg-ink-3); transform: rotate(90deg); transition: transform .18s ease; line-height: 1; }
+.chev.up { transform: rotate(-90deg); }
+
+/* 多页文档预览翻页（原生 previewImage 只能看一张，卡片里自己翻） */
+.thumb-pager { display: flex; align-items: center; justify-content: center; gap: 16rpx; margin-top: 16rpx; padding-top: 16rpx; border-top: 1rpx solid var(--pg-line); }
+.tp-btn { padding: 8rpx 24rpx; border-radius: 999rpx; border: 1rpx solid var(--pg-line); font-size: 24rpx; color: var(--pg-ink-2); background: var(--pg-card); }
+.tp-btn.off { opacity: .35; }
+.tp-num { font-size: 24rpx; color: var(--pg-ink-3); }

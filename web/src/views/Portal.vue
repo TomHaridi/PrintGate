@@ -225,8 +225,10 @@ async function savePwd() {
   if (pwd.newPassword !== pwd.confirm) return message.warning('两次输入的新密码不一致');
   savingPwd.value = true;
   try {
-    await api.post('/auth/account/password', { oldPassword: pwd.oldPassword, newPassword: pwd.newPassword });
-    message.success('密码已更新，下次登录用新密码');
+    const d = await api.post('/auth/account/password', { oldPassword: pwd.oldPassword, newPassword: pwd.newPassword });
+    // 后端改密后会让所有旧令牌失效，这里把新令牌换上，否则本页下一次请求就被踢
+    if (d && d.token) localStorage.setItem('printgate_token', d.token);
+    message.success(d && d.msg ? d.msg : '密码已更新');
     accShow.value = false;
   } catch (e) {
     message.error(e.message || '修改失败');

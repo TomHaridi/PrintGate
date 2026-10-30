@@ -1,0 +1,7 @@
+<view class="empty {{dark ? 'theme-dark' : ''}}">
+  <image class="empty-img" src="{{image}}" mode="aspectFit" wx:if="{{image}}" />
+  <text class="empty-text">{{text}}</text>
+  <view class="empty-btn" wx:if="{{actionText}}">
+    <view class="btn btn-ghost btn-sm" bindtap="onAction">{{actionText}}</view>
+  </view>
+</view>

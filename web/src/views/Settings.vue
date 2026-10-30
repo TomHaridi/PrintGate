@@ -52,10 +52,27 @@
                   Office 文档转换组件（LibreOffice，docx/xlsx/pptx → PDF）。当前：<b>{{ features.officeConvert ? '已安装' : '未安装' }}</b>
                   <template v-if="features.officeVersion">（{{ features.officeVersion }}）</template>
                   <n-button text size="tiny" style="margin-left: 6px" :loading="rechecking" @click="recheckOffice">重新检测</n-button>
+                  <n-button v-if="!features.officeConvert" size="tiny" type="primary" style="margin-left: 8px" :disabled="officeInstalling" :loading="officeInstalling" @click="installOffice">
+                    {{ officeInstalling ? '安装中…' : (officeCacheCount ? `从数据卷安装（${officeCacheCount} 个包）` : '一键安装（约 80MB 下载）') }}
+                  </n-button>
+                  <n-button v-if="officeCacheCount && !officeInstalling" size="tiny" quaternary style="margin-left: 4px" @click="clearOfficeCache">清理缓存</n-button>
+                  <div v-if="officeInstalling || officePercent > 0" class="office-progress">
+                    <n-progress
+                      type="line"
+                      :percentage="officePercent"
+                      :height="10"
+                      :border-radius="5"
+                      :processing="officeInstalling && officePercent < 100"
+                      :status="officePercent >= 100 ? 'success' : 'default'"
+                    />
+                    <div class="office-phase">{{ officePhaseText }}</div>
+                  </div>
+                  <div v-if="officeInstallMsg" class="office-msg">{{ officeInstallMsg }}</div>
                 </div>
                 <div v-if="!features.officeConvert" class="office-hint">
-                  <div class="office-row"><span class="k">开启</span>重新构建镜像时加 <span class="mono">--build-arg WITH_OFFICE=1</span>，会安装 writer/calc/impress（约 50MB）</div>
+                  <div class="office-row"><span class="k">开启</span>重新构建镜像时加 <span class="mono">--build-arg WITH_OFFICE=1</span>，镜像约 +350MB（装好后镜像内自带，不用再点安装）</div>
                   <div class="office-row"><span class="k">替代</span>上传前先把文档转成 PDF；上传 .docx 时会收到明确提示</div>
+                  <div class="office-row"><span class="k">说明</span>点「一键安装」需下载约 80MB（150 多个包），装好后解压占用约 400MB；安装包会缓存在数据卷，<b>更新镜像后自动离线恢复</b>，不用重装</div>
                 </div>
                 <div v-else class="office-hint">
                   <div class="office-row"><span class="k">支持</span>doc / docx / xls / xlsx / ppt / pptx / odt / ods 等常见格式，上传后自动转 PDF 打印</div>
@@ -280,11 +297,101 @@ const features = ref({});
 const rechecking = ref(false);
 
 // 重新探测转换组件（服务端有 60s 缓存，强制走一次转换探测）
+// Office 组件按需安装：主镜像不带 LibreOffice，点一下在容器内 apk add
+const officeInstalling = ref(false);
+const officeInstallMsg = ref('');
+const officePercent = ref(0);
+const officePhaseText = ref('');
+const officeCacheCount = ref(0);
+const officeCacheBytes = ref(0);
+let officeTimer = null;
+
+const PHASE_TEXT = { download: '正在下载组件', install: '正在安装组件', verify: '正在校验组件', done: '完成' };
+const fmtMB = (n) => `${Math.round((Number(n) || 0) / 1048576)} MB`;
+
+// 把后端状态贴到界面（页面刷新后也能看到正在进行的安装 / 正在恢复）
+function applyInstallState(st) {
+  if (!st) return;
+  officeCacheCount.value = (st.cache && st.cache.count) || 0;
+  officeCacheBytes.value = (st.cache && st.cache.bytes) || 0;
+  if (!st.running) return;
+  officeInstalling.value = true;
+  officePercent.value = Math.max(0, Math.min(100, Number(st.percent) || 0));
+  const head = st.restoring ? '从数据卷恢复中' : (PHASE_TEXT[st.phase] || '安装中');
+  const bits = [head];
+  if (st.phase === 'download' && st.done) bits.push(`已下载 ${st.done}${st.total ? ' / ' + st.total : ''} 个包`);
+  if (st.phase === 'install' && st.total) bits.push(`${st.done} / ${st.total} 个包`);
+  if (st.elapsedMs) bits.push(`已用 ${Math.round(st.elapsedMs / 1000)} 秒`);
+  officePhaseText.value = bits.join(' · ');
+}
+
+async function installOffice() {
+  const cached = officeCacheCount.value;
+  const ask = cached
+    ? `数据卷里已有 ${cached} 个安装包（${fmtMB(officeCacheBytes.value)}），将离线安装 LibreOffice（writer/calc/impress，约 1-2 分钟，不需要联网）。继续？`
+    : '将向容器内安装 LibreOffice（writer/calc/impress，需下载约 80MB，装好占用约 400MB，要联网）。安装包会缓存在数据卷，以后更新镜像会自动恢复、不必重装。继续？';
+  if (!confirm(ask)) return;
+  officeInstalling.value = true;
+  officePercent.value = 0;
+  officePhaseText.value = '正在准备…';
+  officeInstallMsg.value = '';
+  try {
+    const r = await api.post('/settings/office/install');
+    officeInstallMsg.value = (r && r.msg) || '已开始安装';
+    startOfficePoll();
+  } catch (e) {
+    officeInstalling.value = false;
+    officePhaseText.value = '';
+    officeInstallMsg.value = e.message || '启动安装失败';
+  }
+}
+
+function startOfficePoll() {
+  if (officeTimer) return;
+  officeTimer = setInterval(async () => {
+    try {
+      const d = await api.get('/settings/office/status');
+      applyInstallState(d.install);
+      if (d.install && d.install.running) return;
+      clearInterval(officeTimer); officeTimer = null;
+      officeInstalling.value = false;
+      if (d.available) {
+        officePercent.value = 100;
+        officePhaseText.value = '完成';
+        const cache = (d.install && d.install.cache) || {};
+        officeInstallMsg.value = '安装完成：' + (d.version || 'LibreOffice 已可用')
+          + (cache.count ? `（安装包已缓存在数据卷 ${fmtMB(cache.bytes)}，更新镜像后自动恢复）` : '');
+        features.value.officeConvert = true;
+        features.value.officeVersion = d.version || '';
+      } else {
+        officePercent.value = 0;
+        officePhaseText.value = '';
+        officeInstallMsg.value = (d.install && d.install.msg) || '安装未成功，请查看系统日志（常见原因：容器无外网 / 非 root）';
+      }
+    } catch (_) { /* 网络抖动忽略 */ }
+  }, 2000);
+}
+
+async function clearOfficeCache() {
+  if (!confirm('将删除数据卷里的安装包缓存（不影响已安装的组件）。之后更新镜像需要联网重装。继续？')) return;
+  try {
+    const r = await api.delete('/settings/office/cache');
+    officeCacheCount.value = 0;
+    officeCacheBytes.value = 0;
+    message.success((r && r.msg) || '已清理');
+  } catch (e) {
+    message.error(e.message || '清理失败');
+  }
+}
+
 async function recheckOffice() {
   rechecking.value = true;
   try {
     const s = await api.get('/settings?officeProbe=1');
     features.value = s.features || {};
+    // 组件安装/恢复可能正在进行：进页面就把进度接上，刷新不丢
+    applyInstallState(features.value.officeInstall);
+    if (features.value.officeInstall && features.value.officeInstall.running) startOfficePoll();
     message.success(features.value.officeConvert ? `检测到转换组件：${features.value.officeVersion || '已安装'}` : '仍未检测到转换组件');
   } catch (e) { message.error(e.message); }
   finally { rechecking.value = false; }
@@ -399,6 +506,11 @@ async function backup() {
 onMounted(load);
 </script>
 
+<style scoped>
+.office-progress { margin-top: 10px; max-width: 520px; }
+.office-phase { font-size: 12px; color: #8a94a6; margin-top: 6px; }
+.office-msg { margin-top: 6px; font-size: 12px; color: #64748b; }
+</style>
 <style scoped>
 .layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }

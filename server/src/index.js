@@ -7,6 +7,7 @@ const config = require('./config');
 const { cfg, setSetting, getSetting } = require('./db');
 const sec = require('./security');
 const system = require('./system');
+const { migrateLegacy } = require('./migrate');
 const cleanup = require('./cleanup');
 const vprinter = require('./vprinter');
 
@@ -33,6 +34,7 @@ app.use((req, res, next) => {
 });
 
 // ---------- 启动初始化 ----------
+migrateLegacy();
 // 首次启动生成绑定码（带 TTL），保证「小程序扫码绑定管理员」开箱可用
 sec.bindTokenInfo();
 try { vprinter.autoStart(); } catch (e) { console.warn('[vprinter] 启动失败:', e.message); }
@@ -88,6 +90,7 @@ app.use('/api', require('./routes/drivers'));
 app.use('/api', require('./routes/relay'));
 const printRoutes = require('./routes/print');
 app.use('/api', printRoutes);
+app.use('/api', require('./routes/upload'));
 app.use('/api', require('./routes/users'));
 app.use('/api', require('./routes/settings'));
 app.use('/api', require('./routes/system'));
@@ -104,6 +107,19 @@ app.get('/api/health', (req, res) => {
 });
 
 app.use('/api', (req, res) => res.status(404).json({ ok: false, msg: '接口不存在' }));
+
+// ---------- 移动端 Web（H5，iOS 壳也加载这一份） ----------
+// 与接口同源，所以 H5 里直接打相对路径的 /api/*，不需要 CORS；
+// iOS 壳只要加载 <服务地址>/m/ 就等于装上了 App，UI 更新只更新容器镜像即可。
+const mobileRoot = path.join(__dirname, '..', 'mobile');
+if (fs.existsSync(mobileRoot)) {
+  app.use('/m', express.static(mobileRoot, {
+    setHeaders: (res, filePath) => {
+      // 入口文件不缓存，避免换了镜像用户还看到旧界面
+      if (/\.(js|css|html|webmanifest)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
+    }
+  }));
+}
 
 // ---------- 静态前端 ----------
 const webRoot = config.webRoot;
@@ -170,6 +186,16 @@ const server = app.listen(config.port, config.host, () => {
   console.log(`[PrintGate] setup required: ${!sec.hasAdminPassword()}`);
   const c = cfg();
   console.log(`[PrintGate] default printer: ${c.defaultPrinter || '(未设置)'} | wechat: ${c.wxAppid ? 'configured' : 'missing'}`);
+  // Office 组件装在容器可写层，换镜像就没了；数据卷里有包缓存就在后台自动装回去，
+  // 用户不必每次升级后重新点「一键安装」（不阻塞启动，进度在设置页可见）
+  require('./converter').restoreIfCached().then((r) => {
+    if (r && r.started) console.log(`[PrintGate] office: ${r.msg}`);
+  }).catch(() => {});
+  // 旧版本把无扩展名的图片落成了 .bin，预览/合并按后缀判类型认不出，启动时按文件头改正
+  try {
+    const lf = require('./legacyfix').fixLegacyBinFiles();
+    if (lf.fixed) console.log(`[PrintGate] 已修正 ${lf.fixed} 个历史图片文件的扩展名`);
+  } catch (_) {}
 });
 
 function shutdown(sig) {

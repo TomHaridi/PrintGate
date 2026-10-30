@@ -1,0 +1,25 @@
+<view class="page admin-printers {{dark ? 'theme-dark' : ''}}" style="{{primaryStyle}}">
+  <nav-bar title="打印机管理" show-back  center />
+
+  <view class="section-cap">打印机队列<text class="cap-extra">状态由 CUPS 实时同步</text></view>
+
+  <view wx:if="{{denied}}" class="denied-tip">仅管理员可管理打印机</view>
+  <view wx:elif="{{loading}}" class="loading">加载中…</view>
+
+  <block wx:elif="{{printers.length > 0}}">
+    <view class="card p-card-box" wx:for="{{printers}}" wx:key="name">
+      <view class="p-title-row">
+        <view class="p-name ellipsis">{{item.name}}</view>
+        <status-tag text="{{item._state}}" kind="{{item._stateKind}}" dot />
+      </view>
+      <view class="p-info" wx:if="{{item._info}}">{{item._info}}</view>
+      <view class="p-default-line" wx:if="{{item._isDefault}}">默认打印机</view>
+      <view class="p-acts">
+        <view class="p-btn" bindtap="togglePause" data-name="{{item.name}}">{{item._paused ? '恢复打印' : '暂停打印'}}</view>
+        <view class="p-btn p-btn-primary" wx:if="{{!item._isDefault}}" bindtap="setDefault" data-name="{{item.name}}">设为默认</view>
+      </view>
+    </view>
+  </block>
+
+  <view wx:else class="empty-tip">暂无打印机，请到网页管理台添加或扫描</view>
+</view>

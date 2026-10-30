@@ -1,0 +1,9 @@
+{
+  "desc": "关于 PrintGate 云打印小程序的索引配置",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

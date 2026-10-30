@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { db, cfg, getSetting, setSettings, logAudit, nowISO } = require('../db');
+const { intId } = require('../idutil');
 const sec = require('../security');
 const cups = require('../cups');
 const { code2Session } = require('../wechat');
@@ -446,7 +447,8 @@ router.get('/mp/admin/users', requireMiniUser, requireMiniAdmin, (req, res) => {
 
 router.post('/mp/admin/users/:id/:action(approve|reject|block|unblock|delete)', requireMiniUser, requireMiniAdmin, async (req, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
+    const id = intId(req.params.id);
+  if (!id) return res.status(404).json({ ok: false, msg: '用户不存在' });
     const action = req.params.action;
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (!u) return res.status(404).json({ ok: false, msg: '用户不存在' });
@@ -510,7 +512,8 @@ router.get('/mp/admin/tasks', requireMiniUser, requireMiniAdmin, (req, res) => {
 });
 
 router.post('/mp/admin/tasks/:id/:action(approve|reject)', requireMiniUser, requireMiniAdmin, (req, res) => {
-  const id = parseInt(req.params.id, 10);
+  const id = intId(req.params.id);
+  if (!id) return res.status(404).json({ ok: false, msg: '用户不存在' });
   const t = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
   if (!t) return res.status(404).json({ ok: false, msg: '任务不存在' });
   if (t.status !== 'pending') return res.status(400).json({ ok: false, msg: `任务已${t.status}，无需处理` });

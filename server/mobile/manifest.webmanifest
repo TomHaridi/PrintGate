@@ -1,0 +1,15 @@
+{
+  "name": "PrintGate 云打印",
+  "short_name": "PrintGate",
+  "description": "上传文件、选择打印机、提交打印并跟踪记录",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F7F6",
+  "theme_color": "#0C8B80",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "icon.png", "sizes": "384x384", "type": "image/png", "purpose": "any" }
+  ]
+}

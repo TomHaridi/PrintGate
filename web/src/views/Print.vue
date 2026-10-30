@@ -381,6 +381,11 @@
           </template>
           <div class="preview">
             <img v-if="previewUrl" :src="previewUrl" alt="预览" class="preview-img" :class="{ rotated: opt.orientation === 'landscape' }" />
+            <div v-if="previewUrl && previewTotal > 1" class="pv-pagebar">
+              <n-button size="tiny" quaternary :disabled="previewPage <= 1" @click="goPreviewPage(-1)">上一页</n-button>
+              <span class="pv-pageno">{{ previewPage }} / {{ previewTotal }}</span>
+              <n-button size="tiny" quaternary :disabled="previewPage >= previewTotal" @click="goPreviewPage(1)">下一页</n-button>
+            </div>
             <div v-else class="preview-empty">
               <n-icon :component="EyeOffOutline" :size="26" style="color: #cbd5e1" />
               <div class="muted" style="font-size: 12.5px; margin-top: 8px">{{ previewHint }}</div>
@@ -497,6 +502,8 @@ const detail = ref(null);
 const tasks = ref([]);
 const mode = ref('standard');
 const previewUrl = ref('');
+const previewPage = ref(1);
+const previewTotal = ref(0);
 const extraText = ref('');
 
 const images = ref([]);          // 发票：已选图片 [{id,url,filename}]
@@ -766,9 +773,19 @@ async function autoCropId() {
   }
 }
 
-async function fetchPreview(id) {
-  const blob = await api.get(`/files/${id}/preview`, { responseType: 'blob' });
+async function fetchPreview(id, page = 1) {
+  const blob = await api.get(`/files/${id}/preview?page=${page}`, { responseType: 'blob' });
   return URL.createObjectURL(blob instanceof Blob ? blob : new Blob([blob]));
+}
+
+async function goPreviewPage(delta) {
+  const id = mode.value === 'standard' ? current.value?.id : images.value[0]?.id;
+  if (!id) return;
+  const next = previewPage.value + delta;
+  if (next < 1 || (previewTotal.value && next > previewTotal.value)) return;
+  previewPage.value = next;
+  if (previewUrl.value) { URL.revokeObjectURL(previewUrl.value); previewUrl.value = ''; }
+  previewUrl.value = await fetchPreview(id, next);
 }
 
 async function refreshPreview() {
@@ -779,7 +796,13 @@ async function refreshPreview() {
     let id = null;
     if (mode.value === 'standard') id = current.value?.id;
     else if (mode.value === 'invoice') id = images.value[0]?.id;
-    if (id) { previewUrl.value = await fetchPreview(id); return; }
+    if (id) {
+      previewPage.value = 1;
+      const cur = mode.value === 'standard' ? current.value : images.value[0];
+      previewTotal.value = Number(cur && cur.pages) || 0;
+      previewUrl.value = await fetchPreview(id, 1);
+      return;
+    }
     // 文字模式没有已上传文件，改为把表单内容实时排版后取第一页
     if (mode.value === 'text') await refreshTextPreview();
   } catch (_) { /* 预览失败不打断 */ }
@@ -978,6 +1001,10 @@ onBeforeUnmount(() => {
 });
 </script>
 
+<style scoped>
+.pv-pagebar { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 6px; }
+.pv-pageno { font-size: 12px; color: #6b7280; }
+</style>
 <style scoped>
 /* 普通用户直接访问本页（不在管理台布局里），补上外边距 */
 .page.standalone { max-width: 1240px; margin: 0 auto; padding: 22px 24px 48px; }

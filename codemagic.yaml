@@ -1,0 +1,50 @@
+# Codemagic 云端 macOS 构建配置（免费额度：每月 500 分钟 M2 机器）
+# 用途与 .github/workflows/flutter-ios.yml 相同：在 mac 构建机上把 Flutter 工程编成「未签名 IPA」。
+# 用法：把仓库连到 Codemagic → 选这个 workflow → Start new build。
+workflows:
+  ios-unsigned:
+    name: PrintGate iOS (unsigned IPA)
+    working_directory: app
+    instance_type: mac_mini_m2
+    max_build_duration: 40
+    environment:
+      flutter: 3.47.9
+      # 只出未签名包时不需要证书；将来要直接装进手机再加 signing 段
+      # ios_signing:
+      #   distribution_type: development
+      #   bundle_identifier: com.printgate.app
+    cache:
+      cache_paths:
+        - $HOME/.pub-cache
+        - $FLUTTER_ROOT/.pub-cache
+    scripts:
+      - name: Flutter doctor
+        script: flutter doctor -v
+
+      - name: Pub get
+        script: flutter pub get
+
+      - name: Analyze
+        script: flutter analyze
+
+      - name: Unit tests
+        script: flutter test
+
+      # --no-codesign：先要一个「能装进手机再自签」的产物，不依赖开发者账号
+      - name: Build iOS (no codesign)
+        script: flutter build ios --release --no-codesign
+
+      - name: Package unsigned IPA
+        script: |
+          set -euo pipefail
+          APP_PATH="build/ios/iphoneos/Runner.app"
+          test -d "$APP_PATH" || { echo "找不到 $APP_PATH"; ls -R build/ios | head -50; exit 1; }
+          rm -rf build/Payload build/PrintGate-unsigned.ipa
+          mkdir -p build/Payload
+          cp -R "$APP_PATH" build/Payload/PrintGate.app
+          ( cd build && zip -qry PrintGate-unsigned.ipa Payload )
+          ls -lh build/PrintGate-unsigned.ipa
+
+    artifacts:
+      - build/PrintGate-unsigned.ipa
+      - build/ios/archive/**/*.xcarchive

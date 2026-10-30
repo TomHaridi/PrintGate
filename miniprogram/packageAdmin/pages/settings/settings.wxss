@@ -1,0 +1,13 @@
+.denied-tip { text-align: center; color: var(--pg-ink-3); font-size: 26rpx; padding: 80rpx 0; }
+.empty-tip { text-align: center; color: var(--pg-ink-3); font-size: 24rpx; padding: 80rpx 0; }
+
+.unit { font-size: 22rpx; color: var(--pg-ink-3); margin-left: 8rpx; }
+.set-tip { font-size: 21rpx; color: var(--pg-ink-3); line-height: 1.6; padding: 14rpx 0 4rpx; }
+
+.save-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 8rpx 24rpx 40rpx;
+}
+.save-tip { font-size: 22rpx; color: var(--pg-warning); }
+.save-tip-ok { color: var(--pg-ink-3); }
+.save-btn { width: 280rpx; flex-shrink: 0; }

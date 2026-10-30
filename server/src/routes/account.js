@@ -126,10 +126,13 @@ router.post('/auth/account/password', (req, res) => {
   }
   const pwdErr = passwordProblem(b.newPassword, b.confirm);
   if (pwdErr) return res.status(400).json({ ok: false, msg: pwdErr });
-  db.prepare('UPDATE users SET pass_hash = ?, updated_at = ? WHERE id = ?')
-    .run(sec.hashPassword(b.newPassword), nowISO(), user.id);
+  // 同时记录改密时间：更早签发的令牌会在中间件里被判定失效
+  db.prepare('UPDATE users SET pass_hash = ?, pwd_changed_at = ?, updated_at = ? WHERE id = ?')
+    .run(sec.hashPassword(b.newPassword), nowISO(), nowISO(), user.id);
   logAudit('user_change_password', `username=${user.username}`, sec.clientIp(req), `user#${user.id}`);
-  res.json({ ok: true, msg: '密码已修改' });
+  // 当前设备换发新令牌（否则用户自己被踢下线），其它设备上的旧令牌则立刻失效
+  const fresh = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+  res.json({ ok: true, msg: '密码已修改，其它设备需重新登录', token: sec.signUser(fresh), user: publicUser(fresh) });
 });
 
 // 注册开关状态（登录页据此显示/隐藏注册入口）

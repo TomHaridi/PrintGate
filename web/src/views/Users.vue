@@ -309,6 +309,37 @@ function clearBindTimers() {
   if (bindPoll) { clearInterval(bindPoll); bindPoll = null; }
 }
 
+// 重置普通用户密码：不传密码就由后端生成随机强密码，只回显一次
+async function resetPassword(u) {
+  dialog.warning({
+    title: '重置密码',
+    content: `将把「${u.nickname || u.username || u.openid}」的密码重置为随机强密码，该用户所有已登录会话会立即失效。`,
+    positiveText: '确认重置',
+    negativeText: '取消',
+    onPositiveClick: async () => {
+      try {
+        const d = await api.post(`/users/${u.id}/reset-password`);
+        dialog.success({
+          title: '已重置',
+          content: `新密码：${d.password}
+请立即告知本人，此密码只显示这一次。`,
+          positiveText: '复制并关闭',
+          onPositiveClick: () => {
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(d.password).then(
+                () => message.success('已复制'),
+                () => message.warning('复制失败，请手动记录')
+              );
+            }
+          }
+        });
+      } catch (e) {
+        message.error(e.message || '重置失败');
+      }
+    }
+  });
+}
+
 async function openBind(u) {
   bindUser.value = u;
   bindDone.value = null;
@@ -496,6 +527,7 @@ function moreOptions(u) {
     { label: u.role === 'admin' ? '取消管理员' : '设为管理员', key: u.role === 'admin' ? 'demote' : 'promote' },
     { label: '查看申请资料', key: 'detail' },
     { label: u.openid && !/^local_/.test(u.openid) ? '重新绑定微信' : '扫码绑定微信', key: 'bind' },
+    { label: '重置密码', key: 'reset' },
     { type: 'divider', key: 'd' },
     { label: '删除用户及数据', key: 'delete' }
   ];
@@ -504,6 +536,7 @@ function moreOptions(u) {
 function onMore(key, u) {
   if (key === 'detail') return openDetail(u);
   if (key === 'bind') return openBind(u);
+  if (key === 'reset') return resetPassword(u);
   if (key === 'bind') return openBind(u);
   if (key === 'delete') {
     dialog.error({

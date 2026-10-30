@@ -1,0 +1,25 @@
+<view class="mask {{dark ? 'theme-dark' : ''}}" wx:if="{{show}}">
+  <view class="dialog" catchtap="noop">
+    <view class="title">隐私保护提示</view>
+    <view class="body">
+      在使用本小程序前，请阅读
+      <text class="link" bindtap="openContract">{{privacyContractName || '《隐私保护指引》'}}</text>。
+      当您点击「同意」，即表示您已理解并同意该条款。
+    </view>
+    <view class="actions">
+      <view class="btn cancel" hover-class="btn-hover" hover-stay-time="80" bindtap="onDisagree">拒绝</view>
+      <!-- 必须是官方 open-type="agreePrivacyAuthorization" 的 button：
+           自绘按钮调用 resolve({event:'agree'}) 只放行当前这一次，微信不会记账，
+           下次调 chooseMessageFile / chooseImage 仍会被拦截。
+           id 与 settle 时回传的 buttonId 必须一致。 -->
+      <button
+        id="privacy-agree-btn"
+        class="btn ok"
+        hover-class="ok-hover"
+        hover-stay-time="80"
+        open-type="agreePrivacyAuthorization"
+        bindagreeprivacyauthorization="onAgreePrivacy"
+      >同意</button>
+    </view>
+  </view>
+</view>

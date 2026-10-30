@@ -1,0 +1,1 @@
+<view class="st-root tag tag-{{kind}} {{dot ? 'tag-dot' : ''}} {{dark ? 'theme-dark' : ''}}">{{text}}</view>

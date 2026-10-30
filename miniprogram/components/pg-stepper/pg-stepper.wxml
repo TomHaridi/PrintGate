@@ -1,0 +1,5 @@
+<view class="stepper {{dark ? 'theme-dark' : ''}}">
+  <view class="st-btn {{value <= min ? 'st-dis' : ''}}" bindtap="onMinus">−</view>
+  <view class="st-value">{{value}}{{unit}}</view>
+  <view class="st-btn {{value >= max ? 'st-dis' : ''}}" bindtap="onPlus">+</view>
+</view>

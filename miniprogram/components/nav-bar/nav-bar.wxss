@@ -1,0 +1,42 @@
+/* 自包含 token：与 app.wxss 一致，保证组件内暗夜可靠 */
+.nav {
+  --pg-ink: #16262E;
+  --pg-bg: #F3F5F6;
+}
+.nav.theme-dark {
+  --pg-ink: #E8EEF0;
+  --pg-bg: #10181C;
+}
+.nav { position: sticky; top: 0; z-index: 90; background: var(--pg-bg); }
+.nav-status { width: 100%; }
+.nav-bar { display: flex; align-items: center; box-sizing: border-box; position: relative; }
+.nav-back {
+  width: 64rpx; height: 64rpx;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: 8rpx; flex-shrink: 0;
+}
+.back-arrow {
+  width: 20rpx; height: 20rpx;
+  border-left: 4rpx solid var(--pg-ink);
+  border-bottom: 4rpx solid var(--pg-ink);
+  transform: rotate(45deg);
+  margin-left: -6rpx;
+}
+.nav-title {
+  font-size: 32rpx; font-weight: 600; color: var(--pg-ink);
+  margin-left: 4rpx;
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* 居中标题：脱离 flex 流做整屏绝对居中，否则会被左侧返回键 / 右侧插槽挤偏 */
+.nav-title.is-center {
+  position: absolute; left: 0; right: 0; top: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: center;
+  text-align: center;
+  margin-left: 0;
+  padding: 0 120rpx;         /* 两侧留白对称，超长标题不与返回键重叠 */
+  pointer-events: none;      /* 不挡住返回键点击 */
+  z-index: 1;
+}
+.nav-back, .nav-right { position: relative; z-index: 2; }
+.nav-right { display: flex; align-items: center; flex-shrink: 0; }

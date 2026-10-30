@@ -395,8 +395,10 @@ router.get('/scanners/diag', requireAdmin, async (req, res) => {
     hints: {
       install: 'apk add --no-cache sane sane-utils sane-network（需先启用 community 仓库）',
       usb: 'docker run --device /dev/bus/usb ... 或 compose 的 devices: - /dev/bus/usb:/dev/bus/usb',
-      network: '网络一体机安装 sane-airscan 并确认与容器同网段（建议 network_mode: host）'
-    }
+      network: '网络一体机安装 sane-airscan 并在「网络扫描仪」里填 IP；或把容器改成 network_mode: host（仅 Linux）'
+    },
+    airscan: { conf: scan.AIRSCAN_CONF, devices: scan.readAirscanConf() },
+    network: scan.netInfo()
   });
 });
 
@@ -407,11 +409,61 @@ function safeDeviceName(v) {
   return /^[A-Za-z0-9._:+@=-]{1,200}$/.test(s) ? s : '';
 }
 
+// ---------- 网络扫描仪（sane-airscan） ----------
+// 桥接网络下 mDNS 过不来，这里让用户手填 IP，写进 airscan.conf 后 scanimage 就能认出设备。
+router.get('/scanners/network', requireAdmin, (req, res) => {
+  res.json({ ok: true, conf: scan.AIRSCAN_CONF, devices: scan.readAirscanConf(), network: scan.netInfo() });
+});
+
+// 只探测连通性，不落盘
+router.post('/scanners/network/probe', requireAdmin, sec.rateLimit({ key: 'scanprobe', windowMs: 60000, max: 20 }), async (req, res) => {
+  const host = String((req.body || {}).host || '').trim();
+  if (!host) return res.status(400).json({ ok: false, msg: '请填写一体机的 IP 或 IP:端口' });
+  const r = await scan.probeNetwork(host);
+  res.json(r);
+});
+
+router.post('/scanners/network', requireAdmin, async (req, res) => {
+  const b = req.body || {};
+  const name = String(b.name || '').trim().slice(0, 40);
+  const host = String(b.host || '').trim();
+  if (!name) return res.status(400).json({ ok: false, msg: '给这台扫描仪起个名字（会显示在设备列表里）' });
+  if (!host) return res.status(400).json({ ok: false, msg: '请填写一体机的 IP 或 IP:端口' });
+  const probe = await scan.probeNetwork(host);
+  // 探测不通也允许强制写入：老机型只支持 WSD / 厂商私有协议，
+  // HTTP 探测不到不代表 airscan 扫不出来，让用户自己决定。
+  const force = !!b.force;
+  if (!probe.ok && !force) return res.status(400).json({ ok: false, msg: probe.msg, url: probe.url, canForce: true, steps: probe.steps || [], ports: probe.ports || [] });
+  const target = probe.ok ? probe.url : scan.normalizeHost(host);
+  if (!target) return res.status(400).json({ ok: false, msg: '地址格式不对' });
+  const devices = scan.addNetworkScanner(name, target);
+  // 立刻重新枚举，把结果一并返回，页面不用再点一次「重新检测」
+  const list = await scan.listDevices(true);
+  logAudit('scan_add_network', `name=${name} url=${probe.url}`, sec.clientIp(req), 'admin');
+  res.json({ ok: true, msg: `已添加「${name}」`, devices, scan: list });
+});
+
+router.delete('/scanners/network/:name', requireAdmin, (req, res) => {
+  const name = String(req.params.name || '').trim();
+  if (!name) return res.status(400).json({ ok: false, msg: '缺少名称' });
+  const devices = scan.removeNetworkScanner(name);
+  logAudit('scan_del_network', `name=${name}`, sec.clientIp(req), 'admin');
+  res.json({ ok: true, msg: `已移除「${name}」`, devices });
+});
+
 router.get('/scanners/:device/options', requireAdmin, async (req, res) => {
   const device = safeDeviceName(decodeURIComponent(req.params.device || ''));
   if (!device) return res.status(400).json({ ok: false, msg: '扫描设备名不合法', options: [] });
   const data = await scan.deviceOptions(device);
   res.json(data);
+});
+
+// 设备自检：只打开设备读参数（--test），不真正扫描；顺带列出 mDNS 发现到的真实地址
+router.get('/scanners/:device/selftest', requireAdmin, async (req, res) => {
+  const device = safeDeviceName(decodeURIComponent(req.params.device || ''));
+  if (!device) return res.status(400).json({ ok: false, msg: '扫描设备名不合法' });
+  const r = await scan.deviceSelfTest(device);
+  res.json(r);
 });
 
 router.post('/scanners/scan', requireAdmin, sec.rateLimit({ key: 'scan', windowMs: 60000, max: 12 }), async (req, res) => {

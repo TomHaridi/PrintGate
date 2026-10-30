@@ -1,0 +1,40 @@
+/* 自包含 token：与 app.wxss 一致，保证组件内暗夜可靠 */
+.st-root {
+  --pg-fill: #EFF2F4;
+  --pg-ink-2: #45555E;
+  --pg-success: #158A63;
+  --pg-success-soft: #E5F6EF;
+  --pg-warning: #B86D0C;
+  --pg-warning-soft: #FCF1E2;
+  --pg-danger: #E4573D;
+  --pg-danger-soft: #FCECE8;
+  --pg-info: #2C6FD0;
+  --pg-info-soft: #E8F2FD;
+}
+.st-root.theme-dark {
+  --pg-fill: #222F36;
+  --pg-ink-2: #A9B8BD;
+  --pg-success: #35C08D;
+  --pg-success-soft: #17322A;
+  --pg-warning: #F0A84C;
+  --pg-warning-soft: #382B18;
+  --pg-danger: #F0705A;
+  --pg-danger-soft: #3A2220;
+  --pg-info: #5FA8F5;
+  --pg-info-soft: #1B2C40;
+}
+.st-root {
+  display: inline-flex; align-items: center;
+  height: 40rpx; padding: 0 16rpx; border-radius: 20rpx;
+  font-size: 22rpx; font-weight: 500; line-height: 40rpx;
+  background: var(--pg-fill); color: var(--pg-ink-2);
+}
+.tag-primary { background: var(--pg-primary-soft, #E7F5F3); color: var(--pg-primary, #0C8B80); }
+.tag-success { background: var(--pg-success-soft); color: var(--pg-success); }
+.tag-warning { background: var(--pg-warning-soft); color: var(--pg-warning); }
+.tag-danger { background: var(--pg-danger-soft); color: var(--pg-danger); }
+.tag-info { background: var(--pg-info-soft); color: var(--pg-info); }
+.tag-dot::before {
+  content: ''; width: 10rpx; height: 10rpx; border-radius: 50%;
+  background: currentColor; margin-right: 10rpx;
+}

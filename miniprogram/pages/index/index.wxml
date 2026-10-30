@@ -1,0 +1,282 @@
+<view class="page index-page {{dark ? 'theme-dark' : ''}}" style="{{primaryStyle}}">
+  <nav-bar title="PrintGate" center />
+
+  <!-- 服务地址未配置 -->
+  <view class="notice notice-warning" wx:if="{{!baseReady}}">
+    <image class="n-icon" src="/images/icons/info-ink.png" mode="aspectFit" />
+    <view class="grow">
+      <view>尚未配置 PrintGate 服务地址，无法打印。</view>
+      <view class="n-link" bindtap="goMine">去「我的 → 服务地址」配置 →</view>
+    </view>
+  </view>
+
+  <!-- 待审批 / 未授权 -->
+  <view class="notice notice-warning" wx:if="{{baseReady && user && !approved}}">
+    <image class="n-icon" src="/images/icons/info-ink.png" mode="aspectFit" />
+    <view class="grow">
+      <view wx:if="{{user.status === 'pending'}}">账号待管理员审批，审批通过后才能打印。</view>
+      <view wx:elif="{{user.status === 'rejected'}}">账号未通过审批，如有疑问请联系管理员。</view>
+      <view wx:elif="{{user.status === 'blocked'}}">账号已被停用，如有疑问请联系管理员。</view>
+      <view class="n-link" bindtap="goMine">完善我的资料 →</view>
+    </view>
+  </view>
+
+  <!-- 欢迎头图 -->
+  <view class="hero">
+    <view class="hero-greet">{{greeting}}，{{user.nickname || '新用户'}}</view>
+    <view class="hero-sub">{{today}} · {{printers.length}} 台打印机在线</view>
+    <view class="hero-badge" wx:if="{{user && user.role === 'admin'}}">管理员</view>
+  </view>
+
+  <!-- 模式切换 -->
+  <view class="card">
+    <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="tabs">
+      <view class="tab-wrap">
+        <view class="tab {{mode === item.key ? 'on' : ''}}" wx:for="{{modes}}" wx:key="key" data-key="{{item.key}}" bindtap="switchMode">{{item.label}}</view>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- ============ 标准打印 ============ -->
+  <block wx:if="{{mode === 'file'}}">
+    <view class="section-cap">打印文件<text class="cap-extra">PDF / 图片 / Office / TXT</text></view>
+    <view class="card">
+      <view wx:if="{{!file}}" class="dropzone" bindtap="chooseFromChat">
+        <image class="dz-icon" src="/images/icons/upload.png" mode="aspectFit" />
+        <view class="dz-title">选择要打印的文件</view>
+        <view class="dz-sub">聊天记录里的图片和文件都能选，相册可多选</view>
+      </view>
+      <view wx:else class="file-card">
+        <image class="fc-thumb" src="{{previewPath}}" mode="aspectFill" wx:if="{{previewPath}}" />
+        <view class="fc-thumb fc-ph" wx:elif="{{previewLoading}}">…</view>
+        <view class="fc-thumb fc-ext" wx:else>{{file._ext}}</view>
+        <view class="fc-info">
+          <view class="fc-name ellipsis">{{file.displayName || file.filename}}</view>
+          <view class="fc-meta">{{file._sizeMeta}}</view>
+        </view>
+        <view class="fc-acts">
+          <view class="fc-btn" bindtap="previewFile">预览</view>
+          <view class="fc-btn fc-btn-del" bindtap="removeFile">移除</view>
+        </view>
+      </view>
+      <view class="thumb-pager" wx:if="{{file && file.pages > 1}}">
+        <view class="tp-btn {{previewPage <= 1 ? 'off' : ''}}" bindtap="prevPage">上一页</view>
+        <view class="tp-num">第 {{previewPage}} / {{file.pages}} 页</view>
+        <view class="tp-btn {{previewPage >= file.pages ? 'off' : ''}}" bindtap="nextPage">下一页</view>
+      </view>
+      <view class="upload-row" wx:if="{{!file}}">
+        <view class="btn btn-ghost btn-sm grow" bindtap="chooseFromChat">聊天记录文件</view>
+        <view class="btn btn-ghost btn-sm grow" bindtap="chooseFromAlbum">相册图片</view>
+      </view>
+      <view class="upload-row" wx:else>
+        <view class="btn btn-sm grow" bindtap="chooseFromChat">重新选择文件</view>
+        <view class="btn btn-sm grow" bindtap="chooseFromAlbum">换图片</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ============ 文字速印 ============ -->
+  <block wx:elif="{{mode === 'text'}}">
+    <view class="section-cap">文字速印<text class="cap-extra">粘贴文字直接排版成 PDF</text></view>
+    <view class="card">
+      <view class="opt-row">
+        <text class="opt-label">标题</text>
+        <input class="opt-input" value="{{textTitle}}" placeholder="可选" placeholder-class="ph" bindinput="onTitleInput" />
+      </view>
+      <view class="opt-row">
+        <text class="opt-label">字号</text>
+        <view class="grow"></view>
+        <pg-stepper value="{{textFont}}" min="6" max="48" bind:change="onTextFont" />
+      </view>
+      <textarea class="text-area" value="{{textBody}}" placeholder="在此粘贴要打印的文字（地址、取件码、交接单…）" placeholder-class="ph" maxlength="50000" bindinput="onTextInput" />
+      <view class="compose-row">
+        <text class="cap-extra">{{textLines ? textLines + ' 行' : ''}}</text>
+        <view class="grow"></view>
+        <view class="btn btn-primary btn-sm" bindtap="composeText">生成预览</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ============ 发票合排 ============ -->
+  <block wx:elif="{{mode === 'invoice'}}">
+    <view class="section-cap">发票合排<text class="cap-extra">多图按每页 1/2/4 张合成 A4</text></view>
+    <view class="card">
+      <view class="chips">
+        <view class="chip {{invoicePer === item.v ? 'on' : ''}}" wx:for="{{invoicePerList}}" wx:key="v" bindtap="onInvoicePer" data-v="{{item.v}}">{{item.t}}</view>
+      </view>
+      <view class="thumbs" wx:if="{{invoiceImages.length > 0}}">
+        <view class="thumb" wx:for="{{invoiceImages}}" wx:key="*this">
+          <image class="thumb-img" src="{{item}}" mode="aspectFill" />
+          <view class="thumb-del" catchtap="removeInvoice" data-i="{{index}}">×</view>
+        </view>
+      </view>
+      <view class="dz-sub" wx:else>尚未选择发票图片</view>
+      <view class="upload-row">
+        <view class="btn btn-ghost btn-sm grow" bindtap="chooseInvoice">添加发票图片</view>
+        <view class="btn btn-primary btn-sm grow" bindtap="composeInvoice">生成预览</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ============ 身份证 ============ -->
+  <block wx:elif="{{mode === 'idcard'}}">
+    <view class="section-cap">身份证打印<text class="cap-extra">正反面各占半页，合一张 A4</text></view>
+    <view class="card">
+      <view class="id-grid">
+        <view class="id-slot" bindtap="chooseIdCard" data-side="front">
+          <image class="id-img" src="{{idFront}}" mode="aspectFill" wx:if="{{idFront}}" />
+          <view class="id-ph" wx:else>+ 上传人像面</view>
+          <view class="id-del" catchtap="clearIdCard" data-side="front" wx:if="{{idFront}}">×</view>
+        </view>
+        <view class="id-slot" bindtap="chooseIdCard" data-side="back">
+          <image class="id-img" src="{{idBack}}" mode="aspectFill" wx:if="{{idBack}}" />
+          <view class="id-ph" wx:else>+ 上传国徽面</view>
+          <view class="id-del" catchtap="clearIdCard" data-side="back" wx:if="{{idBack}}">×</view>
+        </view>
+      </view>
+      <view class="upload-row">
+        <view class="btn btn-primary btn-sm grow" bindtap="composeIdCard">生成预览</view>
+      </view>
+    </view>
+  </block>
+
+  <!-- ============ 打印预览 ============ -->
+  <view class="section-cap" wx:if="{{mode !== 'file'}}">打印预览</view>
+  <view class="card" wx:if="{{mode !== 'file'}}">
+    <image class="preview-img" src="{{composedPath}}" mode="widthFix" wx:if="{{composedPath}}" />
+    <view class="preview-ph" wx:else>{{composing ? '生成中…' : '点击上方「生成预览」查看排版效果'}}</view>
+  </view>
+
+  <!-- ============ 选择打印机 ============ -->
+  <view class="section-cap">选择打印机<text class="cap-extra">{{selectedPrinter || '暂无可用'}}</text></view>
+  <view class="card">
+    <scroll-view scroll-x enhanced show-scrollbar="{{false}}" class="printer-scroll" wx:if="{{printers.length > 0}}">
+      <view class="p-wrap">
+        <view class="p-card {{item.name === selectedPrinter ? 'on' : ''}}" wx:for="{{printers}}" wx:key="name" bindtap="selectPrinter" data-name="{{item.name}}">
+          <view class="p-name ellipsis">{{item.name}}</view>
+          <view class="p-state"><status-tag text="{{item._state}}" kind="{{item._stateKind}}" dot /></view>
+          <view class="p-default" wx:if="{{item.isDefault}}">默认</view>
+        </view>
+      </view>
+    </scroll-view>
+    <pg-empty wx:else text="没有可用打印机" actionText="刷新列表" bind:action="refreshPrinters" />
+  </view>
+
+  <!-- ============ 打印参数 ============ -->
+  <view class="section-cap">打印参数<text class="cap-extra">提交前可调整</text></view>
+
+  <view class="card">
+    <view class="card-head"><view class="card-title">基本</view></view>
+    <view class="opt-row">
+      <text class="opt-label">份数</text>
+      <view class="grow"></view>
+      <pg-stepper value="{{options.copies}}" min="1" max="{{maxCopies}}" bind:change="onCopies" />
+    </view>
+    <view class="opt-row">
+      <text class="opt-label">色彩</text>
+      <view class="segmented grow">
+        <view class="seg {{options.color === 'mono' ? 'on' : ''}}" bindtap="setOpt" data-k="color" data-v="mono">黑白</view>
+        <view class="seg {{options.color === 'color' ? 'on' : ''}}" bindtap="setOpt" data-k="color" data-v="color">彩色</view>
+      </view>
+    </view>
+    <view class="opt-row">
+      <text class="opt-label">双面</text>
+      <view class="segmented grow">
+        <view class="seg {{options.sides === 'one-sided' ? 'on' : ''}}" bindtap="setOpt" data-k="sides" data-v="one-sided">单面</view>
+        <view class="seg {{options.sides === 'two-sided-long-edge' ? 'on' : ''}}" bindtap="setOpt" data-k="sides" data-v="two-sided-long-edge">长边</view>
+        <view class="seg {{options.sides === 'two-sided-short-edge' ? 'on' : ''}}" bindtap="setOpt" data-k="sides" data-v="two-sided-short-edge">短边</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="card">
+    <view class="card-head" bindtap="togglePaper">
+      <view class="card-title">纸张与版式</view>
+      <view class="ch-toggle">
+        <text class="ch-sum" wx:if="{{!showPaper}}">{{paperSummary}}</text>
+        <text class="chev {{showPaper ? 'up' : ''}}">›</text>
+      </view>
+    </view>
+    <block wx:if="{{showPaper}}">
+    <view class="opt-row">
+      <text class="opt-label">纸张</text>
+      <view class="chips grow">
+        <view class="chip {{options.media === item ? 'on' : ''}}" wx:for="{{mediaList}}" wx:key="*this" bindtap="setOpt" data-k="media" data-v="{{item}}">{{item}}</view>
+      </view>
+    </view>
+    <view class="opt-row">
+      <text class="opt-label">方向</text>
+      <view class="segmented grow">
+        <view class="seg {{options.orientation === 'portrait' ? 'on' : ''}}" bindtap="setOpt" data-k="orientation" data-v="portrait">纵向</view>
+        <view class="seg {{options.orientation === 'landscape' ? 'on' : ''}}" bindtap="setOpt" data-k="orientation" data-v="landscape">横向</view>
+      </view>
+    </view>
+    <view class="opt-row">
+      <text class="opt-label">每页张数</text>
+      <view class="chips grow">
+        <view class="chip {{options.numberUp === item ? 'on' : ''}}" wx:for="{{numberUpList}}" wx:key="*this" bindtap="setOpt" data-k="numberUp" data-v="{{item}}">{{item}}</view>
+      </view>
+    </view>
+    <view class="opt-row">
+      <text class="opt-label">缩放</text>
+      <view class="chips grow">
+        <view class="chip {{options.scaling === item.v ? 'on' : ''}}" wx:for="{{scalingList}}" wx:key="v" bindtap="setOpt" data-k="scaling" data-v="{{item.v}}">{{item.t}}</view>
+      </view>
+    </view>
+    </block>
+  </view>
+
+  <view class="card">
+    <view class="card-head" bindtap="toggleAdv">
+      <view class="card-title">高级</view>
+      <view class="ch-toggle">
+        <text class="ch-sum" wx:if="{{!showAdv}}">{{advSummary}}</text>
+        <text class="chev {{showAdv ? 'up' : ''}}">›</text>
+      </view>
+    </view>
+    <block wx:if="{{showAdv}}">
+    <view class="opt-row">
+      <text class="opt-label">页码范围</text>
+      <input class="opt-input" value="{{options.pageRanges}}" placeholder="全部页面，如 1-3,5" placeholder-class="ph" bindinput="onPageRanges" />
+    </view>
+    <view class="opt-row">
+      <text class="opt-label">页面子集</text>
+      <view class="chips grow">
+        <view class="chip {{options.pageSet === item.v ? 'on' : ''}}" wx:for="{{pageSetList}}" wx:key="v" bindtap="setOpt" data-k="pageSet" data-v="{{item.v}}">{{item.t}}</view>
+      </view>
+    </view>
+    <view class="opt-row">
+      <text class="opt-label">镜像打印</text>
+      <view class="segmented grow">
+        <view class="seg {{!options.mirror ? 'on' : ''}}" bindtap="setOpt" data-k="mirror" data-v="false">关闭</view>
+        <view class="seg {{options.mirror ? 'on' : ''}}" bindtap="setOpt" data-k="mirror" data-v="true">开启</view>
+      </view>
+    </view>
+    <view class="opt-row">
+      <text class="opt-label">页边框</text>
+      <view class="segmented grow">
+        <view class="seg {{!options.pageBorder ? 'on' : ''}}" bindtap="setOpt" data-k="pageBorder" data-v="false">关闭</view>
+        <view class="seg {{options.pageBorder ? 'on' : ''}}" bindtap="setOpt" data-k="pageBorder" data-v="true">开启</view>
+      </view>
+    </view>
+    <view class="opt-row">
+      <text class="opt-label">水印文字</text>
+      <input class="opt-input" value="{{options.watermark}}" placeholder="不超过 40 字，可留空" placeholder-class="ph" bindinput="onWatermark" />
+    </view>
+    </block>
+  </view>
+
+  <!-- 底部操作条 -->
+  <view class="footer-bar">
+    <view class="summary">
+      <view class="s1">{{summaryLine1}}</view>
+      <view class="s2 ellipsis">{{summaryLine2}}</view>
+    </view>
+    <view class="btn btn-primary footer-btn {{canSubmit ? '' : 'btn-dis'}}" bindtap="submitPrint">提交打印</view>
+  </view>
+
+  <!-- 离屏合成画布 -->
+  <canvas type="2d" id="compose-canvas" class="compose-canvas"></canvas>
+
+  <privacy-modal />
+</view>

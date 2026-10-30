@@ -1,0 +1,10 @@
+{
+  "navigationStyle": "custom",
+  "enablePullDownRefresh": true,
+  "usingComponents": {
+    "nav-bar": "/components/nav-bar/nav-bar",
+    "pg-empty": "/components/pg-empty/pg-empty",
+    "status-tag": "/components/status-tag/status-tag",
+    "pg-dialog": "/components/pg-dialog/pg-dialog"
+  }
+}

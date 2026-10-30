@@ -1,5 +1,5 @@
 # 说明：本文件用于「在源码目录本地构建镜像」（build: .）。
-# 只想部署官方镜像，直接用 README「2.2 Docker Compose 部署」里 image: tomdfwe/printgate:latest 的片段。
+# 只想部署官方镜像，请用 docs/DOCKER-DEPLOY.md 里的 compose 片段（image: tomdfwe/printgate:latest）。
 services:
   printgate:
     build:
@@ -48,11 +48,18 @@ services:
 #       扫描仪由容器内 sane 提供，挂载后 scanimage -L 就能列出设备）
 #
 # ── 网络扫描仪（AirScan / eSCL，多数网络一体机）──
-#   1. 若已装 sane-airscan：容器内会自动发现同网段设备，无需额外配置；
-#   2. 若设备在另一个网段或需广播发现，改用 network_mode: host（同时删掉 ports 段）；
-#   3. 也可在容器内 /etc/sane.d/airscan.conf 里手写设备地址：
-#        [devices]
-#        MyScanner = http://192.168.1.50/eSCL
+#   镜像内已装 sane-airscan（构建参数 WITH_AIRSCAN，见 Dockerfile）。两种接法：
+#
+#   A. 推荐：不改网络模式，直接在管理台「扫描仪 → 网络扫描仪」填一体机 IP
+#      · 后台会把地址写进 /data/sane.d/airscan.conf（数据卷，重建不丢）
+#      · SANE_CONFIG_DIR 已设为「/data/sane.d:/etc/sane.d」，airscan 用我们的配置，
+#        其它后端（epson2 等）仍用系统自带配置
+#      · 桥接网络也能用，适合 Docker Desktop / 云主机
+#
+#   B. Linux 主机：改用 host 网络，可让 mDNS 自动发现（删掉上面的 ports 段）
+#      network_mode: host
+#      · 注意：host 模式下 8080/631 直接占用宿主端口，端口冲突要先解决
+#      · macOS / Windows 的 Docker Desktop 不支持真正的 host 网络，请用 A
 #
 # ── 验证扫描链路 ──
 #   docker exec printgate scanimage --version

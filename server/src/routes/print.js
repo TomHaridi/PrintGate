@@ -59,7 +59,7 @@ async function pdfToImages(pdfPath, outDir, dpi = 150) {
   return files;
 }
 
-const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tif', '.tiff'];
+const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tif', '.tiff', '.webp', '.heic', '.heif'];
 const DOC_EXT = ['.pdf'];
 const OFFICE_EXT = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp', '.rtf', '.txt'];
 const ALLOWED = [...DOC_EXT, ...IMAGE_EXT, ...OFFICE_EXT];
@@ -72,6 +72,83 @@ function decodeFilename(name) {
   const utf8 = Buffer.from(raw, 'latin1').toString('utf8');
   const fixed = utf8.includes('\uFFFD') ? raw : utf8;
   return fixed.slice(0, 200);
+}
+
+// 微信真机上传的临时文件常常是 `tmp_xxxx` 这种没有扩展名的路径（尤其 chooseMedia /
+// chooseMessageFile 拿到的图片），靠扩展名判类型会直接 400。这里按文件头认出真实格式。
+// 只用于图片和 PDF —— Office 是 ZIP/OLE 容器，光看魔数分不出 docx/xlsx，仍按扩展名走。
+function sniffExt(filePath) {
+  const head = (n) => {
+    const fd = fs.openSync(filePath, 'r');
+    const buf = Buffer.alloc(n);
+    try { fs.readSync(fd, buf, 0, n, 0); } finally { fs.closeSync(fd); }
+    return buf;
+  };
+  try {
+    const b8 = head(8);
+    if (b8.slice(0, 5).toString('latin1') === '%PDF-') return '.pdf';
+    if (b8.equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return '.png';
+    const b3 = head(3);
+    if (b3[0] === 0xff && b3[1] === 0xd8 && b3[2] === 0xff) return '.jpg';
+    if (head(6).toString('latin1').startsWith('GIF8')) return '.gif';
+    if (head(2).toString('latin1') === 'BM') return '.bmp';
+    const b12 = head(12);
+    if (b12.slice(0, 4).toString('latin1') === 'RIFF' && b12.slice(8, 12).toString('latin1') === 'WEBP') return '.webp';
+    // iPhone 相册原图是 HEIC：ISO BMFF 容器，[4..8)='ftyp'，brand 在 [8..12)
+    if (b12.slice(4, 8).toString('latin1') === 'ftyp') {
+      const brand = b12.slice(8, 12).toString('latin1');
+      if (['heic', 'heix', 'hevc', 'hevx', 'heim', 'heis'].includes(brand)) return '.heic';
+    }
+    const b4 = head(4);
+    if ((b4[0] === 0x49 && b4[1] === 0x49) || (b4[0] === 0x4d && b4[1] === 0x4d)) return '.tiff';
+    return '';
+  } catch (_) {
+    return '';
+  }
+}
+
+// 图片和 PDF 一律以文件头为准（这些扩展名与真实内容不一致是常态，不是攻击）
+const CONTENT_FIRST_EXT = ['.pdf', ...IMAGE_EXT];
+
+// 扩展名是客户端说了算的，必须用文件头校验真实类型：
+// 否则把 HTML/脚本改名成 .pdf 就能存进来，后续预览失败，将来做"下载原文件"还会变成存储型 XSS。
+function contentMatches(ext, filePath) {
+  const head = (n) => {
+    const fd = fs.openSync(filePath, 'r');
+    const buf = Buffer.alloc(n);
+    try { fs.readSync(fd, buf, 0, n, 0); } finally { fs.closeSync(fd); }
+    return buf;
+  };
+  try {
+    if (ext === '.pdf') return head(5).toString('latin1') === '%PDF-';
+    if (ext === '.txt') return true;                       // 纯文本没有魔数，只能放过（渲染时按文本处理）
+    if (ext === '.jpg' || ext === '.jpeg') { const b = head(3); return b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff; }
+    if (ext === '.png') return head(8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
+    if (ext === '.gif') return head(6).toString('latin1').startsWith('GIF8');
+    if (ext === '.bmp') return head(2).toString('latin1') === 'BM';
+    if (ext === '.webp') { const b = head(12); return b.slice(0, 4).toString('latin1') === 'RIFF' && b.slice(8, 12).toString('latin1') === 'WEBP'; }
+    if (ext === '.tif' || ext === '.tiff') { const b = head(4); return (b[0] === 0x49 && b[1] === 0x49) || (b[0] === 0x4d && b[1] === 0x4d); }
+    if (ext === '.docx' || ext === '.xlsx' || ext === '.pptx' || ext === '.odt' || ext === '.ods' || ext === '.odp') {
+      const b = head(4);
+      return b[0] === 0x50 && b[1] === 0x4b && (b[2] === 0x03 || b[2] === 0x05 || b[2] === 0x07);   // ZIP 容器
+    }
+    if (ext === '.doc' || ext === '.xls' || ext === '.ppt') {
+      const b = head(4);
+      return b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0;                       // OLE 复合文档
+    }
+    if (ext === '.rtf') return head(5).toString('latin1') === '{\\rtf';
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// 预览页码：1 起；超出文档页数时返回 null（调用方给 404）
+function previewPage(req, totalPages) {
+  const raw = parseInt((req.query || {}).page, 10);
+  const page = Number.isInteger(raw) && raw > 0 ? raw : 1;
+  if (!totalPages) return page;          // 页数未知（pdfinfo 缺失）时不拦，交给 pdftoppm 判断
+  return page > totalPages ? null : page;
 }
 
 function extOf(name) {
@@ -115,7 +192,22 @@ async function pdfInfo(filePath) {
 }
 
 // 落库 + 必要的格式转换
-async function registerFile({ userId, file, source }) {
+// 端上合成图（文字/发票/身份证）希望有个可读文件名。
+// 只取基名、滤掉控制字符与路径符号，扩展名强制沿用服务端已校验的真实类型
+// —— 展示名不能成为绕过「内容与扩展名相符」校验的口子。
+function displayNameFrom(raw, fallback) {
+  const s = String(raw || '').trim();
+  if (!s || s.length > 200) return '';
+  const realExt = extOf(fallback);
+  let base = path.basename(s).replace(/[\u0000-\u001f\u007f<>:"/\\|?*]/g, '').trim();
+  if (!base) return '';
+  const givenExt = extOf(base);
+  if (givenExt === realExt) return base.slice(0, 160);
+  if (givenExt) base = base.slice(0, -(givenExt.length)).trim();
+  return ((base || 'upload') + realExt).slice(0, 160);
+}
+
+async function registerFile({ userId, file, source, hintName }) {
   // 上传被拒的文件没有 DB 记录，cleanup 扫不到——这里删不掉就是永久泄漏，必须登记 orphans
   if (!file.size) {
     const ok = await fsutil.safeUnlink(file.path, { label: '空文件上传' });
@@ -123,14 +215,43 @@ async function registerFile({ userId, file, source }) {
     return { ok: false, msg: '文件内容为空，请重新选择' };
   }
   file.originalname = decodeFilename(file.originalname);
-  const ext = extOf(file.originalname);
+  let ext = extOf(file.originalname);
+  const sniffed = sniffExt(file.path);
+  // 图片/PDF 以内容为准：改名成 .jpg 的 PNG、没有扩展名的 tmp 文件，都按真实格式收下，
+  // 后续预览/打印用的也是真实格式，不存在「改后缀绕过校验」的口子
+  if (sniffed && CONTENT_FIRST_EXT.includes(sniffed)) ext = sniffed;
   if (!ext) {
+    const given = path.extname(file.originalname) || path.extname(String(hintName || ''));
     const ok = await fsutil.safeUnlink(file.path, { label: '类型不符上传' });
     if (!ok) orphans.add(file.path);
-    return { ok: false, msg: `不支持的文件类型 ${path.extname(file.originalname) || ''}（支持 PDF / 图片 / Office 文档 / TXT）` };
+    return { ok: false, msg: `不支持的文件类型${given ? ' ' + given : '（文件名没有扩展名）'}，支持 PDF / 图片 / Office 文档 / TXT` };
   }
+  if (!contentMatches(ext, file.path)) {
+    const ok = await fsutil.safeUnlink(file.path, { label: '内容与扩展名不符' });
+    if (!ok) orphans.add(file.path);
+    return { ok: false, msg: `文件内容与扩展名不符（${ext}），请确认文件没有损坏或被改过后缀` };
+  }
+
+  // multer 是按「上传时的文件名」定扩展名的。微信真机给的临时名是 tmp_xxxx（没有扩展名），
+  // 于是落盘成 xxxx.bin；上面虽然按文件头认出了真实类型，但磁盘名还是 .bin。
+  // 后面合并、预览、打印全都按 storage_path 的后缀判类型 —— .bin 会被当成未知文件，
+  // 表现就是「单张传上了、多选合成报不是图片 / 打印说格式不支持」。这里把磁盘名改成真实类型。
+  const diskExt = extOf(file.path);
+  if (diskExt !== ext) {
+    const fixed = path.join(path.dirname(file.path), `${path.parse(file.path).name}${ext}`);
+    try {
+      fs.renameSync(file.path, fixed);
+      file.path = fixed;
+    } catch (_) { /* 改名失败就沿用原名，不影响上传本身 */ }
+  }
+
   let storagePath = file.path;
-  let filename = file.originalname;
+  // 展示名：优先用端上带过来的名字（小程序临时文件名是 tmp_xxx），扩展名强制换成真实类型
+  // hintName 可能是空白字符串，trim 后为空就退回原文件名，避免落出「   .png」这种名字
+  const hint = String(hintName || '').trim();
+  const wantName = hint || file.originalname;
+  const stem = (path.parse(String(wantName)).name || '').replace(/[\u0000-\u001f\u007f<>:"/\\|?*]/g, '').trim().slice(0, 60) || '文件';
+  let filename = displayNameFrom(wantName, `upload${ext}`) || `${stem}${ext}`;
   let pages = 0;
 
   if (OFFICE_EXT.includes(ext) && ext !== '.txt') {
@@ -154,7 +275,7 @@ async function registerFile({ userId, file, source }) {
   if (pages && pages > maxPages) {
     const ok = await fsutil.safeUnlink(storagePath, { label: '页数超限' });
     if (!ok) orphans.add(storagePath);
-    return { ok: false, msg: `文档 ${pages} 页，超过单任务上限 ${maxPages} 页` };
+    return { ok: false, msg: `文档 ${pages} 页，超过单任务上限 ${maxPages} 页（可在「系统设置 → 单任务最大页数」调大）` };
   }
 
   const size = fs.statSync(storagePath).size;
@@ -533,14 +654,18 @@ router.get('/files/:id/preview', requirePrintAccess, async (req, res) => {
   }
   const lower = f.storage_path.toLowerCase();
   if (IMAGE_EXT.includes(path.extname(lower))) return res.sendFile(f.storage_path);
+  const page = previewPage(req, f.pages);
+  if (page === null) return res.status(404).json({ ok: false, msg: '页码超出范围' });
   const cacheDir = path.join(config.dataDir, 'preview');
   fs.mkdirSync(cacheDir, { recursive: true });
-  const out = path.join(cacheDir, `f${f.id}.png`);
+  const out = path.join(cacheDir, `f${f.id}-p${page}.png`);
   if (!fs.existsSync(out)) {
-    const r = await cups.run('pdftoppm', ['-f', '1', '-l', '1', '-r', '80', '-png', '-singlefile', f.storage_path, out.replace(/\.png$/, '')], { timeout: 30000 });
+    const r = await cups.run('pdftoppm', ['-f', String(page), '-l', String(page), '-r', '80', '-png', '-singlefile', f.storage_path, out.replace(/\.png$/, '')], { timeout: 30000 });
     if (!r.ok) return res.status(415).json({ ok: false, msg: '无法生成预览（缺少 pdftoppm 组件）' });
   }
   res.set('Cache-Control', 'private, max-age=300');
+  res.set('X-Page', String(page));
+  res.set('X-Total-Pages', String(f.pages || 0));
   res.sendFile(out);
 });
 
@@ -554,6 +679,9 @@ const SAFE_TOKEN = /^[A-Za-z0-9_.:\/-]{0,60}$/;
 
 // 只保留白名单内的值：非法值不入库、不落到 lp 命令行
 function normalizeOptions(o = {}) {
+  // 客户端可能传 null / 数组 / 字符串：默认参数只管 undefined，这里显式兜住，
+  // 否则 o.copies 直接抛 TypeError，请求会挂住而不是返回 400。
+  if (!o || typeof o !== 'object' || Array.isArray(o)) o = {};
   const pick = (k) => (o[k] === undefined || o[k] === null ? '' : String(o[k]).trim());
   const opts = {};
   opts.copies = Math.min(Math.max(parseInt(o.copies, 10) || 1, 1), cfg().maxCopies);
@@ -592,12 +720,13 @@ async function createTask({ fileId, printer, options = {}, userId = null, source
   const c = cfg();
   const target = printer || c.defaultPrinter;
   if (!target) return { ok: false, code: 400, msg: '未指定打印机，且未设置默认打印机' };
+  // 先做参数归一化：参数非法应当直接 400，而不是被"CUPS 没就绪"掩盖
+  const opts = normalizeOptions(options);
   const printers = await cups.listPrinters();
   if (!printers.ok) return { ok: false, code: 503, msg: 'CUPS 服务未就绪，无法打印' };
   if (!printers.printers.some((p) => p.name === target)) {
     return { ok: false, code: 400, msg: `打印机「${target}」不存在或已被删除，请重新选择` };
   }
-  const opts = normalizeOptions(options);
   // RAW 直通队列没有驱动，彩色/双面等选项会被 CUPS 丢掉 —— 提前说明，别让用户以为设了彩色就是彩色
   let rawWarn = '';
   if (opts.color === 'color') {
@@ -813,6 +942,11 @@ router.post('/tasks/:id/reject', requireAdmin, (req, res) => {
 router.post('/tasks/:id/cancel', requireAdmin, async (req, res) => {
   const t = db.prepare('SELECT * FROM tasks WHERE id = ?').get(req.params.id);
   if (!t) return res.status(404).json({ ok: false, msg: '任务不存在' });
+  // 先判状态再动 CUPS：已完成的任务如果还去 cancelJob，
+  // cupsd 重启后 job id 可能被重新计数，等于误杀别人的任务。
+  if (!['pending', 'approved', 'printing'].includes(t.status)) {
+    return res.status(409).json({ ok: false, msg: '任务已结束，无法取消' });
+  }
   if (t.job_id) await cups.cancelJob(t.job_id);
   const upd = db.prepare("UPDATE tasks SET status = 'canceled', finished_at = ? WHERE id = ? AND status IN ('pending','approved','printing')")
     .run(nowISO(), t.id);
@@ -858,7 +992,12 @@ router.post('/cups/jobs/:id/:action(cancel|hold|release)', requireAdmin, async (
 // ---------- 小程序侧 ----------
 router.post('/mp/files', requireMiniUser, requireApprovedUser, uploadMiddleware('file'), async (req, res) => {
   if (!req.file) return res.status(400).json({ ok: false, msg: '未收到文件' });
-  const r = await registerFile({ userId: req.user.id, file: req.file, source: 'miniapp' });
+  // 端上合成的图片（文字速印 / 发票合排 / 身份证）源路径是临时文件名，
+  // 允许上传时带上展示名；否则打印记录里只会看到 tmp_xxxx.png
+  const r = await registerFile({
+    userId: req.user.id, file: req.file, source: 'miniapp',
+    hintName: req.body && req.body.filename
+  });
   if (!r.ok) return res.status(400).json(r);
   logAudit('mp_upload', `${r.file.filename} (${r.file.size}B)`, sec.clientIp(req), `user#${req.user.id}`);
   res.json({ ok: true, file: r.file });
@@ -869,6 +1008,70 @@ router.get('/mp/files', requireMiniUser, (req, res) => {
     "SELECT id, filename, size, pages, created_at FROM files WHERE user_id = ? AND status = 'active' ORDER BY id DESC LIMIT 50"
   ).all(req.user.id);
   res.json({ ok: true, files: list });
+});
+
+// 相册 / 聊天多选图片：端上逐张上传（微信只支持单文件上传），再调这里按选择顺序
+// 合成一个多页 PDF（每张一页）。这样打印记录里是一条「N 页」文档，
+// 预览能翻页、页数计费与传一个多页 PDF 完全一致。
+const MERGE_IMG_EXT = ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif', '.heic', '.heif'];
+const MERGE_MAX = 20;
+
+router.post('/mp/files/merge', requireMiniUser, requireApprovedUser, async (req, res) => {
+  const raw = req.body && req.body.ids;
+  const ids = [...new Set((Array.isArray(raw) ? raw : [])
+    .map((x) => Number(x))
+    .filter((n) => Number.isInteger(n) && n > 0))];
+  if (!ids.length) return res.status(400).json({ ok: false, msg: '请先选择图片' });
+  if (ids.length > MERGE_MAX) return res.status(400).json({ ok: false, msg: `一次最多合并 ${MERGE_MAX} 张图片` });
+  const maxPages = cfg().maxPages;
+  if (ids.length > maxPages) return res.status(400).json({ ok: false, msg: `合计 ${ids.length} 页，超过单任务上限 ${maxPages} 页` });
+
+  const images = [];
+  const tmpFiles = [];
+  try {
+    for (const id of ids) {
+      const f = db.prepare("SELECT id, filename, storage_path FROM files WHERE id = ? AND user_id = ? AND status = 'active'")
+        .get(id, req.user.id);
+      if (!f) return res.status(404).json({ ok: false, msg: '有图片已失效，请重新选择' });
+      const ext = extOf(f.storage_path) || '';
+      // 兼容修复前落盘的图（磁盘名是 .bin）：扩展名不像图片时再用文件头确认一次
+      if (!MERGE_IMG_EXT.includes(ext) && !MERGE_IMG_EXT.includes(sniffExt(f.storage_path))) {
+        return res.status(400).json({ ok: false, msg: `「${f.filename}」不是图片，不能和其它图片合并` });
+      }
+      if (render.readableImage(f.storage_path)) { images.push(f.storage_path); continue; }
+      // webp / heic / bmp 这类 pdfkit 读不了，先转 PNG；sharp 不可用就明确告知
+      const png = path.join(config.uploadDir, `mg${Date.now().toString(36)}${crypto.randomBytes(5).toString('hex')}.png`);
+      if (await render.toPng(f.storage_path, png)) { tmpFiles.push(png); images.push(png); continue; }
+      return res.status(400).json({ ok: false, msg: `「${f.filename}」格式无法解析，请改用 JPG / PNG` });
+    }
+
+    const outPath = path.join(config.uploadDir, `${Date.now().toString(36)}${crypto.randomBytes(8).toString('hex')}.pdf`);
+    // perPage=1 + guide=false：每张图独占一页，等比铺满，不画裁切框
+    await render.imagesPdf(outPath, {
+      images, layout: 'grid', perPage: 1, media: 'A4', margin: 18, gap: 0, guide: false
+    });
+    const info = await pdfInfo(outPath);
+    const pages = info.pages || images.length;
+    if (pages > maxPages) {
+      await fsutil.safeUnlink(outPath, { label: '合并超页数' });
+      return res.status(400).json({ ok: false, msg: `合成后 ${pages} 页，超过单任务上限 ${maxPages} 页` });
+    }
+    const name = displayNameFrom(req.body && req.body.filename, outPath)
+      || `图片合并-${images.length}张.pdf`;
+    const size = fs.statSync(outPath).size;
+    const ins = db.prepare(
+      'INSERT INTO files (user_id, filename, size, mime, pages, storage_path, created_at) VALUES (?,?,?,?,?,?,?)'
+    ).run(req.user.id, name, size, 'application/pdf', pages, outPath, nowISO());
+    logAudit('mp_merge_images', `${name}（${images.length} 张）`, sec.clientIp(req), `user#${req.user.id}`);
+    res.json({
+      ok: true,
+      file: { id: ins.lastInsertRowid, filename: name, size, pages, created_at: nowISO() }
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, msg: `合成失败：${e.message}` });
+  } finally {
+    for (const p of tmpFiles) fsutil.safeUnlink(p, { label: '合并临时图片' }).catch(() => {});
+  }
 });
 
 router.delete('/mp/files/:id', requireMiniUser, async (req, res) => {
@@ -958,14 +1161,19 @@ router.get('/mp/files/:id/preview', requireMiniUser, async (req, res) => {
   }
   const lower = f.storage_path.toLowerCase();
   if (IMAGE_EXT.includes(path.extname(lower))) return res.sendFile(f.storage_path);
+  // 多页文档要能翻页：?page=N 按页渲染并各自缓存
+  const page = previewPage(req, f.pages);
+  if (page === null) return res.status(404).json({ ok: false, msg: '页码超出范围' });
   const cacheDir = path.join(config.dataDir, 'preview');
   fs.mkdirSync(cacheDir, { recursive: true });
-  const out = path.join(cacheDir, `f${f.id}.png`);
+  const out = path.join(cacheDir, `f${f.id}-p${page}.png`);
   if (!fs.existsSync(out)) {
-    const r = await cups.run('pdftoppm', ['-f', '1', '-l', '1', '-r', '80', '-png', '-singlefile', f.storage_path, out.replace(/\.png$/, '')], { timeout: 30000 });
+    const r = await cups.run('pdftoppm', ['-f', String(page), '-l', String(page), '-r', '80', '-png', '-singlefile', f.storage_path, out.replace(/\.png$/, '')], { timeout: 30000 });
     if (!r.ok) return res.status(415).json({ ok: false, msg: '无法生成预览' });
   }
   res.set('Cache-Control', 'private, max-age=300');
+  res.set('X-Page', String(page));
+  res.set('X-Total-Pages', String(f.pages || 0));
   res.sendFile(out);
 });
 

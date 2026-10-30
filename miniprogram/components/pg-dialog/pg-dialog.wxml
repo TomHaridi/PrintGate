@@ -1,0 +1,10 @@
+<view class="mask {{dark ? 'theme-dark' : ''}}" wx:if="{{visible}}" bindtap="onMask">
+  <view class="dlg" catchtap="noop">
+    <view class="dlg-title">{{title}}</view>
+    <view class="dlg-content">{{content}}</view>
+    <view class="dlg-actions">
+      <view wx:if="{{!single && cancelText}}" class="dlg-btn dlg-cancel" bindtap="onCancel">{{cancelText}}</view>
+      <view class="dlg-btn {{danger ? 'dlg-ok-danger' : 'dlg-ok'}}" bindtap="onOk">{{okText}}</view>
+    </view>
+  </view>
+</view>

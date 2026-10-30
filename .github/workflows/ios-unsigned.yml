@@ -1,0 +1,37 @@
+name: Build unsigned iOS IPA
+
+# 在 GitHub 的 macOS 机器上编译，产出未签名 IPA 作为 artifact 下载。
+# 为什么要用 CI：iOS 的 .app 只能由 Xcode 编译，Windows 上没有任何替代品。
+# 用法：把仓库推到 GitHub → Actions → 这个 workflow → Run workflow。
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-unsigned.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Build unsigned IPA
+        run: bash ios/scripts/build-unsigned-ipa.sh
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: PrintGate-unsigned-ipa
+          path: ios/build/PrintGate-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 30

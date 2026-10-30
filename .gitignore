@@ -17,3 +17,14 @@ server/*.db
 server/*.db-*
 *.tar.gz
 .env
+
+# ---- Flutter ----
+app/build/
+app/.dart_tool/
+app/.idea/
+app/**/Flutter/ephemeral/
+ios/build/
+
+# ---- 历史副本 / 乱码目录（不进仓库）----
+miniprogram-old/
+զ*/

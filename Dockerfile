@@ -26,17 +26,36 @@ RUN npm config set registry https://registry.npmmirror.com \
  && npm_config_nodedir=/usr/local npm install --omit=dev --no-audit --no-fund \
  && npm cache clean --force
 
+# npm 会把 sharp 的所有平台预编译包都装进来（glibc / musl / wasm 三份，未压缩约 44MB），
+# 而 Alpine 只用 linuxmusl-<arch> 这一份，其余是纯死重量。
+# better-sqlite3 同理：运行时只要 build/Release/*.node，随包携带的 sqlite3 合并源码（约 9.5MB）没用。
+ARG TARGETARCH
+RUN set -eux; \
+    cd /build/node_modules/@img; \
+    for d in *; do \
+      case "$d" in \
+        colour|*"linuxmusl-${TARGETARCH}") : ;; \
+        *) echo "prune @img/$d"; rm -rf "$d" ;; \
+      esac; \
+    done; \
+    ls -1; \
+    rm -rf /build/node_modules/better-sqlite3/deps \
+           /build/node_modules/better-sqlite3/src \
+           /build/node_modules/better-sqlite3/build/obj
+
 # ---------- 3. 运行镜像 ----------
 FROM node:${NODE_TAG} AS runtime
 
 # WITH_OFFICE=1 时内置 LibreOffice（writer/calc/impress），docx/xlsx/pptx 可直接上传转 PDF。
-# 默认关闭：完整套件会显著增大镜像，只装三个排版组件 + common 已经小很多。
+# 默认不内置：三个组件装完约 1GB，主镜像会被撑到 1.2GB。
+# 功能没删——管理台「系统设置」有一键安装按钮，运行时 apk add 即用；
+# 离线环境要一次到位，用 --build-arg WITH_OFFICE=1 构建（可另推 :office 标签）。
 # 阶段内必须重新声明（全局 ARG 只对 FROM 行生效）
 ARG WITH_OFFICE=0
 
 LABEL org.opencontainers.image.title="PrintGate" \
       org.opencontainers.image.description="CUPS 打印网关 + 微信小程序中转 + Vue3 管理台" \
-      org.opencontainers.image.version="2.4.9"
+      org.opencontainers.image.version="2.4.19"
 
 ENV TZ=Asia/Shanghai \
     NODE_ENV=production \
@@ -78,11 +97,22 @@ ARG FRP_VERSION=0.71.1
 # 改用 busybox 自带的 unzip applet —— 驱动页从 .zip 里解 PPD 的功能不受影响。
 RUN ln -sf /bin/busybox /usr/local/bin/unzip && unzip -v 2>&1 | head -1
 
-# 可选后端：网络扫描仪需要 sane-airscan（AirScan / eSCL / WSD），共享扫描需要 sane-network。
-# 这两个包并非每个 Alpine 版本都有，装不上时跳过，不影响 USB 扫描仪
-RUN apk add --no-cache --no-progress sane-airscan \
-    || echo "sane-airscan 不可用（该 Alpine 版本未提供），网络一体机需另想办法" ; \
-    apk add --no-cache --no-progress sane-network \
+# 网络扫描仪后端：sane-airscan（AirScan / eSCL / WSD）
+# 坑：sane-airscan 依赖 libtiff.so.6 与 libxml2.so.2，node:alpine 里没有这两个运行时库，
+# 直接 apk add sane-airscan 会失败；旧写法用 || echo 把失败吞了，导致 airscan 从未真正装上。
+ARG WITH_AIRSCAN=1
+RUN if [ "$WITH_AIRSCAN" = "1" ]; then \
+      apk add --no-cache --no-progress tiff libxml2 \
+      && (apk add --no-cache --no-progress sane-airscan \
+          || (echo '构建失败：sane-airscan 装不上；不需要网络扫描时用 --build-arg WITH_AIRSCAN=0' && exit 1)) \
+      && (ls /usr/lib/sane/ | grep -qi airscan || (echo '构建失败：airscan 后端未落盘' && exit 1)) \
+      && echo "airscan 后端已安装"; \
+    else \
+      echo '跳过 sane-airscan（WITH_AIRSCAN=0）：只支持 USB 扫描仪'; \
+    fi
+
+# 共享扫描（net: 后端）不是每个 Alpine 版本都有，缺了不影响 AirScan/eSCL
+RUN apk add --no-cache --no-progress sane-network \
     || echo "sane-network 不可用（该 Alpine 版本未提供），跳过 net: 后端"
 
 # 安装官方 frpc 二进制（Alpine 仓库的 0.65.0 内嵌旧版 x/crypto、x/net，带高危 CVE）
@@ -107,10 +137,12 @@ RUN command -v scanimage >/dev/null 2>&1 \
  || (echo "构建失败：未找到 scanimage，请确认 sane-utils 已安装（需要 community 仓库）" && exit 1)
 
 # Office 转换（可选）：只装 writer/calc/impress（docx/xlsx/pptx → PDF），不装 base/draw/math，
-# 中文渲染依赖镜像内已有的文泉驿字体。构建：docker build --build-arg WITH_OFFICE=1 .
+# Office 转换默认开启；精简镜像用 --build-arg WITH_OFFICE=0。
 RUN if [ "$WITH_OFFICE" = "1" ]; then \
-      apk add --no-cache --no-progress libreoffice-common libreoffice-writer libreoffice-calc libreoffice-impress \
-      && libreoffice --version 2>/dev/null | head -1 ; \
+      apk add --no-cache --no-progress libreoffice-common libreoffice-writer libreoffice-calc libreoffice-impress font-noto-cjk \
+      || (echo '构建失败：LibreOffice 装不上；不需要 Office 转换时用 --build-arg WITH_OFFICE=0' && exit 1); \
+      soffice --version \
+      || (echo '构建失败：soffice 不可执行' && exit 1); \
     else \
       echo "未启用 Office 转换（WITH_OFFICE=0）：docx/xlsx/pptx 上传会提示先转 PDF"; \
     fi
@@ -121,8 +153,10 @@ RUN apk add --no-cache --no-progress fontforge \
  && mkdir -p /usr/share/fonts/printgate \
  && fontforge -lang=ff -c 'Open("/usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc(WenQuanYi Zen Hei)"); Generate("/usr/share/fonts/printgate/wqy-zenhei.ttf")' >/dev/null 2>&1 \
  && apk del fontforge \
- && rm -rf /var/cache/apk/* \
- && ls -l /usr/share/fonts/printgate/
+ && ls -l /usr/share/fonts/printgate/ \
+ && rm -f /usr/share/fonts/wqy-zenhei/wqy-zenhei.ttc \
+ && (fc-cache -f >/dev/null 2>&1 || true) \
+ && rm -rf /var/cache/apk/*
 
 # 保存一份 CUPS 基线配置：/etc/cups 常被 bind-mount 覆盖，入口脚本用它补齐缺失文件
 RUN cp -a /etc/cups /etc/cups-baseline
@@ -145,6 +179,29 @@ COPY --from=web /server/public ./public
 # 8080 管理台/API；631 IPP+AIRPRINT；9100 虚拟打印机接收器（可选）
 EXPOSE 8080 631 9100
 
+VOLUME ["/data"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
+  CMD curl -fsS http://127.0.0.1:8080/api/health || exit 1
+
+ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
+
+# ---------- 4. 扁平化 ----------
+# 上面那些「装完再删」的步骤（fontforge 拆字体、删 npm、清 apk 缓存）在分层存储里
+# 只是打了白洞，字节仍然留在旧层里。把最终文件树重新打成一个单层镜像，
+# 白洞里的东西才真正不占体积（实测 152MB → 约 130MB）。
+# 单层也意味着配置（ENV/ENTRYPOINT/VOLUME…）要在这里重新声明。
+FROM scratch AS final
+COPY --from=runtime / /
+
+ENV TZ=Asia/Shanghai \
+    NODE_ENV=production \
+    PORT=8080 \
+    PG_DATA_DIR=/data \
+    PG_LOG_DIR=/var/log/printgate \
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+WORKDIR /app
+EXPOSE 8080 631 9100
 VOLUME ["/data"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=25s --retries=3 \
   CMD curl -fsS http://127.0.0.1:8080/api/health || exit 1

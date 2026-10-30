@@ -147,6 +147,8 @@ ensureColumns('users', {
   approved_by: "TEXT DEFAULT ''",
   // 解绑时把原 openid 记下来：同一微信再次登录可以直接回到原账号，不再新建重复用户
   prev_openid: "TEXT DEFAULT ''",
+  // 改密/重置密码的时间：比它更早签发的令牌一律失效，避免密码泄露后旧会话还能用
+  pwd_changed_at: "TEXT DEFAULT ''",
   updated_at: 'TEXT'
 });
 db.exec('CREATE INDEX IF NOT EXISTS idx_users_status ON users(status, id)');

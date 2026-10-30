@@ -10,14 +10,18 @@ const ENV = { ...process.env, LC_ALL: 'C', LANG: 'C' };
 // 设置页里的「CUPS 地址」要真的生效：CUPS 命令行认 CUPS_SERVER 环境变量。
 // 留空/默认值（本机 socket）时不注入，保持容器内的原有行为不变。
 function cupsEnv() {
+  // SANE_CONFIG_DIR 由 config.js 启动时注入（/data/sane.d:/etc/sane.d）。
+  // 每次现读，避免 ENV 在 require 时被快照、丢掉 airscan.conf 的路径。
+  const saneDir = process.env.SANE_CONFIG_DIR;
+  const withSane = (obj) => (saneDir ? { ...obj, SANE_CONFIG_DIR: saneDir } : obj);
   try {
     const { cfg } = require('./db');
     const srv = String(cfg().cupsServer || '').trim();
-    if (!srv) return ENV;
-    if (srv === '127.0.0.1:631' || srv === 'localhost:631') return ENV;
-    return { ...ENV, CUPS_SERVER: srv };
+    if (!srv) return withSane(ENV);
+    if (srv === '127.0.0.1:631' || srv === 'localhost:631') return withSane(ENV);
+    return withSane({ ...ENV, CUPS_SERVER: srv });
   } catch (_) {
-    return ENV;
+    return withSane(ENV);
   }
 }
 

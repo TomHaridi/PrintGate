@@ -1,0 +1,98 @@
+.mine-page { padding-bottom: 60rpx; }
+
+/* 信息卡 */
+.profile-card {
+  display: flex; align-items: center;
+  margin: 8rpx 24rpx 22rpx; padding: 32rpx 28rpx;
+  background: var(--pg-card); border-radius: var(--pg-r-l);
+  box-shadow: var(--pg-shadow);
+}
+.avatar-wrap { position: relative; width: 128rpx; height: 128rpx; flex-shrink: 0; }
+.avatar { width: 128rpx; height: 128rpx; border-radius: 50%; background: var(--pg-primary-soft); display: block; }
+/* 透明热区：button 本身不放任何子节点，避免子节点吞掉 chooseavatar 事件 */
+.avatar-hit {
+  position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+  padding: 0; margin: 0; background: transparent; border-radius: 50%;
+}
+.avatar-hit::after { border: none; }
+.avatar-mask {
+  position: absolute; left: 0; bottom: 0; width: 128rpx;
+  background: rgba(22, 38, 46, 0.55); color: #fff;
+  font-size: 18rpx; text-align: center;
+  border-radius: 0 0 64rpx 64rpx; padding: 4rpx 0;
+}
+.p-info { margin-left: 24rpx; flex: 1; min-width: 0; }
+.p-name { font-size: 34rpx; font-weight: 700; color: var(--pg-ink); }
+.p-tags { display: flex; gap: 12rpx; margin-top: 14rpx; }
+
+.n-link { color: var(--pg-primary); font-weight: 600; margin-top: 8rpx; }
+
+.list-icon-danger { background: var(--pg-danger-soft); }
+.footer-version { text-align: center; font-size: 20rpx; color: var(--pg-ink-4); margin-top: 24rpx; }
+
+/* 弹层内容 */
+.sheet-tip { font-size: 24rpx; color: var(--pg-ink-3); line-height: 1.7; }
+.sheet-input-box {
+  background: var(--pg-fill); border-radius: 16rpx;
+  padding: 4rpx 24rpx; margin-top: 24rpx;
+}
+.sheet-input { height: 84rpx; font-size: 28rpx; color: var(--pg-ink); }
+.sheet-presets { display: flex; gap: 16rpx; margin-top: 20rpx; }
+
+/* 主题选项 */
+.theme-opt {
+  display: flex; align-items: center;
+  padding: 24rpx 8rpx;
+  border-radius: var(--pg-r-m);
+}
+.theme-opt + .theme-opt { border-top: 2rpx solid var(--pg-line); }
+.theme-opt.on { background: var(--pg-primary-softer); }
+.theme-name { font-size: 28rpx; font-weight: 600; color: var(--pg-ink); }
+.theme-desc { font-size: 22rpx; color: var(--pg-ink-3); margin-top: 4rpx; }
+.theme-check { width: 36rpx; height: 36rpx; flex-shrink: 0; }
+
+/* 主题色选择 */
+.theme-sub-cap {
+  margin: 28rpx 8rpx 4rpx;
+  font-size: 23rpx; color: var(--pg-ink-3); font-weight: 600;
+}
+.color-grid {
+  display: flex; flex-wrap: wrap; gap: 20rpx;
+  padding: 12rpx 8rpx 4rpx;
+}
+.color-dot {
+  position: relative;
+  width: 84rpx; height: 84rpx; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2rpx 8rpx rgba(22, 38, 46, 0.10);
+  border: 4rpx solid transparent;
+  transition: transform 0.12s ease;
+}
+.color-dot.on {
+  transform: scale(1.06);
+  border-color: var(--pg-card);
+  box-shadow: 0 0 0 4rpx var(--pg-primary-soft), 0 4rpx 14rpx rgba(22, 38, 46, 0.16);
+}
+/* 纯 CSS 白色对勾：不依赖图标配色，深浅主色上都可见 */
+.color-check {
+  width: 32rpx; height: 16rpx;
+  border-left: 6rpx solid #FFFFFF;
+  border-bottom: 6rpx solid #FFFFFF;
+  border-radius: 2rpx;
+  transform: rotate(-45deg);
+  margin-top: -8rpx;
+}
+.color-name {
+  margin: 10rpx 8rpx 0;
+  font-size: 23rpx; color: var(--pg-ink-3);
+}
+
+.about-logo { display: flex; justify-content: center; margin-top: 16rpx; }
+.about-logo image { width: 140rpx; height: 140rpx; }
+.about-name { text-align: center; font-size: 30rpx; font-weight: 700; color: var(--pg-ink); margin-top: 16rpx; }
+.about-desc { font-size: 24rpx; color: var(--pg-ink-3); line-height: 1.7; margin: 20rpx 0 8rpx; }
+.about-row {
+  display: flex; justify-content: space-between;
+  font-size: 25rpx; color: var(--pg-ink-2);
+  padding: 18rpx 0; border-top: 2rpx solid var(--pg-line);
+}

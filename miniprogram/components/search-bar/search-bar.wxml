@@ -1,0 +1,15 @@
+<view class="search-bar {{dark ? 'theme-dark' : ''}}">
+  <view class="box">
+    <image class="icon" src="/images/icons/search-ink.png" mode="aspectFit" />
+    <input
+      class="input"
+      value="{{value}}"
+      placeholder="{{placeholder}}"
+      placeholder-class="ph"
+      confirm-type="search"
+      bindinput="onInput"
+      bindconfirm="onConfirm"
+    />
+    <view class="clear" wx:if="{{value}}" catchtap="onClear">×</view>
+  </view>
+</view>

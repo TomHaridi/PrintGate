@@ -1,0 +1,23 @@
+/* 自包含 token：与 app.wxss 一致，保证组件内暗夜可靠 */
+.stepper {
+  --pg-fill: #EFF2F4;
+  --pg-ink: #16262E;
+  --pg-ink-4: #AEB9C0;
+}
+.stepper.theme-dark {
+  --pg-fill: #222F36;
+  --pg-ink: #E8EEF0;
+  --pg-ink-4: #55666D;
+}
+.stepper { display: flex; align-items: center; }
+.st-btn {
+  width: 56rpx; height: 56rpx; border-radius: 14rpx;
+  background: var(--pg-fill); color: var(--pg-ink);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 36rpx; font-weight: 600;
+}
+.st-btn.st-dis { background: var(--pg-fill); color: var(--pg-ink-4); opacity: 0.6; }
+.st-value {
+  min-width: 96rpx; text-align: center;
+  font-size: 30rpx; font-weight: 600; color: var(--pg-ink);
+}

@@ -1,0 +1,82 @@
+<view class="page admin-settings {{dark ? 'theme-dark' : ''}}" style="{{primaryStyle}}">
+  <nav-bar title="系统设置" show-back  center />
+
+  <view wx:if="{{denied}}" class="denied-tip">仅管理员可修改系统设置</view>
+
+  <block wx:elif="{{settings}}">
+    <!-- 打印限制 -->
+    <view class="section-cap">文件与打印限制<text class="cap-extra">超出限制的任务会被拒绝</text></view>
+    <view class="card">
+      <view class="form-item">
+        <view class="form-label">单文件大小上限<span class="unit">MB</span></view>
+        <input class="form-input" type="number" value="{{settings && settings.maxFileMB}}" data-k="maxFileMB" bindinput="onIntInput" bindblur="onIntBlur" />
+      </view>
+      <view class="form-item">
+        <view class="form-label">单任务份数上限</view>
+        <pg-stepper value="{{settings.maxCopies}}" min="1" max="99" bind:change="onCopiesChange" />
+      </view>
+      <view class="form-item">
+        <view class="form-label">单任务页数上限</view>
+        <input class="form-input" type="number" value="{{settings && settings.maxPages}}" data-k="maxPages" bindinput="onIntInput" bindblur="onIntBlur" />
+      </view>
+      <view class="set-tip">范围：文件 1-500 MB · 份数 1-99 · 页数 1-2000</view>
+    </view>
+
+    <!-- 审批策略 -->
+    <view class="section-cap">审批策略</view>
+    <view class="card">
+      <view class="form-item">
+        <view class="form-label">新用户需审批</view>
+        <switch class="switch" checked="{{!!(settings && settings.approveNewUser)}}" color="#0C8B80" data-k="approveNewUser" bindchange="onToggle" />
+      </view>
+      <view class="form-item">
+        <view class="form-label">每个任务需审批</view>
+        <switch class="switch" checked="{{!!(settings && settings.approveEachJob)}}" color="#0C8B80" data-k="approveEachJob" bindchange="onToggle" />
+      </view>
+      <view class="set-tip">开启「每个任务需审批」后，用户提交的打印会先进入待审批队列</view>
+    </view>
+
+    <!-- 数据保留 -->
+    <view class="section-cap">数据保留与清理</view>
+    <view class="card">
+      <view class="form-item">
+        <view class="form-label">历史保留天数</view>
+        <input class="form-input" type="number" value="{{settings && settings.historyDays}}" data-k="historyDays" bindinput="onIntInput" bindblur="onIntBlur" />
+      </view>
+      <view class="form-item">
+        <view class="form-label">自动清理历史</view>
+        <switch class="switch" checked="{{!!(settings && settings.autoCleanHistory)}}" color="#0C8B80" data-k="autoCleanHistory" bindchange="onToggle" />
+      </view>
+      <view class="set-tip">0 表示不自动清理；自动清理按保留天数每小时执行一次</view>
+    </view>
+
+    <!-- 登录与安全 -->
+    <view class="section-cap">登录与安全</view>
+    <view class="card">
+      <view class="form-item">
+        <view class="form-label">允许扫码登录后台</view>
+        <switch class="switch" checked="{{!!(settings && settings.enableQrLogin)}}" color="#0C8B80" data-k="enableQrLogin" bindchange="onToggle" />
+      </view>
+      <view class="set-tip">关闭后，网页管理台的二维码登录将不可用</view>
+    </view>
+
+    <!-- 默认打印机 -->
+    <view class="section-cap">默认打印机<text class="cap-extra">提交打印未指定时使用</text></view>
+    <view class="card">
+      <picker mode="selector" range="{{printers}}" value="{{printerIndex}}" bindchange="onPrinterChange">
+        <view class="form-item">
+          <view class="form-label">选择打印机</view>
+          <view class="form-value">{{printerText}}</view>
+        </view>
+      </picker>
+    </view>
+
+    <view class="save-bar">
+      <view class="save-tip" wx:if="{{dirty}}">有未保存的修改</view>
+      <view class="save-tip save-tip-ok" wx:else>设置实时生效于新提交的任务</view>
+      <view class="btn btn-primary save-btn {{saving ? 'btn-dis' : ''}}" bindtap="save">{{saving ? '保存中…' : '保存设置'}}</view>
+    </view>
+  </block>
+
+  <view wx:elif="{{!loading}}" class="empty-tip">设置加载失败，请下拉刷新重试</view>
+</view>

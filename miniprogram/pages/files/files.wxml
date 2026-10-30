@@ -1,0 +1,71 @@
+<view class="page files-page {{dark ? 'theme-dark' : ''}}" style="{{primaryStyle}}">
+  <nav-bar title="我的文件"  center />
+
+  <view class="section-cap">文件列表<text class="cap-extra">超过保留期会被自动清理</text></view>
+
+  <view wx:if="{{loading}}" class="loading">加载中…</view>
+
+  <block wx:elif="{{files.length > 0}}">
+    <view class="file-row" wx:for="{{files}}" wx:key="id">
+      <view class="fr-ext {{item._isImage ? 'fr-img' : ''}}">{{item._ext}}</view>
+      <view class="fr-info">
+        <view class="fr-name ellipsis">{{item._name}}</view>
+        <view class="fr-meta">{{item._size}}{{item._pages}} · {{item._time}}</view>
+      </view>
+      <view class="fr-acts">
+        <view class="fr-btn" bindtap="previewFile" data-id="{{item.id}}">预览</view>
+        <view class="fr-btn fr-btn-print" bindtap="toPrint" data-id="{{item.id}}">去打印</view>
+        <view class="fr-btn fr-btn-del" bindtap="askDelete" data-id="{{item.id}}">删除</view>
+      </view>
+    </view>
+  </block>
+
+  <pg-empty
+    wx:else
+    text="还没有上传过文件"
+    actionText="去上传打印"
+    bind:action="goUpload"
+  />
+
+  <pg-dialog
+    visible="{{delVisible}}"
+    title="删除文件"
+    content="删除后不可恢复，未完成的打印任务如引用该文件将失败。确定删除？"
+    ok-text="删除"
+    danger
+    bind:cancel="onDelCancel"
+    bind:ok="onDelOk"
+  />
+
+  <!-- 预览弹层 -->
+  <view class="pv-mask {{dark ? 'theme-dark' : ''}}" wx:if="{{previewVisible}}" bindtap="closePreview">
+    <view class="pv-dialog" catchtap="noop">
+      <view class="pv-head">
+        <view class="pv-name ellipsis">{{previewFile._name || previewFile.filename}}</view>
+        <view class="pv-close" bindtap="closePreview">×</view>
+      </view>
+      <view class="pv-body">
+        <view wx:if="{{previewingId}}" class="pv-loading">预览加载中…</view>
+        <image wx:elif="{{previewPath}}" class="pv-img" src="{{previewPath}}" mode="widthFix" show-menu-by-longpress />
+        <view wx:elif="{{previewErr}}" class="pv-err">
+          <view class="pv-err-text">{{previewErr}}</view>
+          <view class="btn btn-ghost btn-sm" bindtap="retryPreview">重试</view>
+        </view>
+      </view>
+      <view class="pv-pager" wx:if="{{previewPath && previewTotal > 1}}">
+        <view class="pv-pg {{previewPage <= 1 ? 'off' : ''}}" bindtap="prevPage">上一页</view>
+        <view class="pv-pg-num">{{previewPage}} / {{previewTotal}}</view>
+        <view class="pv-pg {{previewPage >= previewTotal ? 'off' : ''}}" bindtap="nextPage">下一页</view>
+      </view>
+      <view class="pv-note" wx:if="{{previewPath && previewFile && !previewFile._isImage}}">共 {{previewTotal || 1}} 页，可逐页查看</view>
+      <view class="pv-acts" wx:if="{{previewPath}}">
+        <view class="btn btn-ghost btn-sm grow" bindtap="savePreview">保存到相册</view>
+        <view class="btn btn-primary btn-sm grow" bindtap="closePreview">关闭</view>
+      </view>
+      <view class="pv-note" wx:if="{{previewPath}}">长按图片也可保存 / 转发</view>
+    </view>
+  </view>
+
+  <!-- 隐私协议：saveImageToPhotosAlbum 属于隐私接口 -->
+  <privacy-modal />
+</view>

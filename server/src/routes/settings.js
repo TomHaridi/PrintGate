@@ -63,8 +63,35 @@ router.get('/settings', requireAdmin, async (req, res) => {
   const conv = req.query.officeProbe === '1' ? await require('../converter').detect(true) : await converter.detect();
   res.json({
     ok: true, settings: fullSettings(), version: config.version,
-    features: { officeConvert: conv.available, officeVersion: conv.version || '' }
+    features: {
+      officeConvert: conv.available,
+      officeVersion: conv.version || '',
+      officeInstall: converter.installStatus()
+    }
   });
+});
+
+// 一键安装 Office 转换组件：主镜像默认不带 LibreOffice（省 ~1GB），需要时现装
+router.post('/settings/office/install', requireAdmin, async (req, res) => {
+  const r = await converter.installOffice();
+  logAudit('office_install', r.msg, sec.clientIp(req), 'admin');
+  res.status(r.ok ? 200 : 400).json(r);
+});
+
+// 安装进度（页面轮询）：返回阶段 + 百分比 + 数据卷缓存情况
+router.get('/settings/office/status', requireAdmin, async (req, res) => {
+  const conv = await converter.detect();
+  res.json({
+    ok: true, available: conv.available, version: conv.version || '',
+    install: converter.installStatus()
+  });
+});
+
+// 清理数据卷里的安装包缓存（镜像已内置 Office 或确实不再需要时释放空间）
+router.delete('/settings/office/cache', requireAdmin, (req, res) => {
+  const r = converter.clearCache();
+  logAudit('office_cache_clear', r.msg, sec.clientIp(req), 'admin');
+  res.status(r.ok ? 200 : 400).json(r);
 });
 
 router.put('/settings', requireAdmin, (req, res) => {

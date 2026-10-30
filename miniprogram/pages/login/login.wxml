@@ -1,0 +1,107 @@
+<view class="page login-page {{dark ? 'theme-dark' : ''}}" style="{{primaryStyle}}">
+  <nav-bar title="" />
+
+  <!-- 登录成功但缺头像/昵称：用官方「头像昵称填写能力」引导补齐 -->
+  <view class="login-card" wx:if="{{needProfile}}">
+    <view class="app-name">完善头像与昵称</view>
+    <view class="app-slogan">微信不允许自动读取，点一下即可带上你的微信头像和昵称</view>
+
+    <view class="pf-avatar-row">
+      <!-- 同「我的」页：chooseAvatar 的 button 保持无子节点，作为透明热区覆盖，
+           否则部分基础库下 bindchooseavatar 不触发，表现为「点了换头像没反应」 -->
+      <view class="pf-avatar-btn">
+        <image class="pf-avatar" src="{{avatarPreview}}" mode="aspectFill" wx:if="{{avatarPreview}}" />
+        <view class="pf-avatar-ph" wx:else>选择头像</view>
+        <button class="pf-avatar-hit" open-type="chooseAvatar" bindchooseavatar="onChooseAvatar" />
+      </view>
+    </view>
+
+    <view class="pf-input-box">
+      <input class="pf-input" type="nickname" value="{{nickDraft}}" placeholder="点这里可一键使用微信昵称" placeholder-class="ph" bindinput="onNickInput" />
+    </view>
+
+    <view class="pf-acts">
+      <view class="btn btn-primary btn-block" bindtap="submitProfile">{{savingProfile ? '保存中…' : '保存并进入'}}</view>
+      <view class="pf-skip" bindtap="skipProfile">稍后再说</view>
+    </view>
+  </view>
+
+  <view class="login-card" wx:else>
+    <view class="brand">
+      <view class="brand-glow"></view>
+      <image class="brand-logo" src="/images/logo.png" mode="aspectFit" />
+    </view>
+    <view class="app-name">PrintGate 云打印</view>
+    <view class="app-slogan">手机选文件，打印机直接出纸</view>
+
+    <view class="status-area">
+      <view wx:if="{{loading}}" class="st-loading">
+        <view class="st-dot"></view>
+        <text>正在登录…</text>
+      </view>
+      <block wx:elif="{{error}}">
+        <view class="st-error">{{error}}</view>
+        <view class="btn btn-primary st-btn" bindtap="doLogin">重新登录</view>
+      </block>
+
+      <!-- 服务地址入口常驻：连不上后端时改地址比重试更有用 -->
+      <view class="st-link" bindtap="openBase">服务地址配置</view>
+      <view class="st-now" wx:if="{{currentBase}}">当前：{{currentBase}}</view>
+    </view>
+  </view>
+
+  <view class="login-footer">
+    <view class="f-line">PrintGate · CUPS 打印网关小程序端</view>
+    <view class="f-link" bindtap="onDevLogin">开发模式登录</view>
+  </view>
+
+  <pg-sheet visible="{{showBase}}" title="服务地址" bind:close="closeBase">
+    <view class="bs-tip">填写 PrintGate 服务端的访问地址，需与后台「小程序对接」页的接入地址一致。本机联调可用 http://127.0.0.1:8080；真机与线上必须是已备案的 https 域名。</view>
+    <view class="bs-input-box">
+      <input class="bs-input" value="{{baseInput}}" placeholder="例如 https://print.example.com 或 192.168.1.10:8080" placeholder-class="ph" bindinput="onBaseInput" confirm-type="done" bindconfirm="saveBase" />
+    </view>
+    <!-- 最近用过的地址：更新小程序、清缓存后不用重填，点一下直接连 -->
+    <block wx:if="{{history.length}}">
+      <view class="bs-cap">
+        <text>最近使用</text>
+        <text class="bs-cap-act" bindtap="clearHistory">清除</text>
+      </view>
+      <view class="bs-list">
+        <view class="bs-item" wx:for="{{history}}" wx:key="*this" data-url="{{item}}" bindtap="useAddr">
+          <image class="bs-ico" src="/images/icons/server.png" mode="aspectFit" />
+          <text class="bs-txt">{{item}}</text>
+          <text class="bs-go">›</text>
+        </view>
+      </view>
+    </block>
+
+    <!-- 扫描局域网：对常见网段/主机位/端口做 HTTP 探测，命中的才列出来 -->
+    <view class="bs-cap"><text>没配过？扫描局域网</text></view>
+    <view class="bs-scan">
+      <input class="bs-scan-in" value="{{scanPrefix}}" placeholder="可选：先填网段 192.168.1." placeholder-class="ph" bindinput="onScanPrefix" />
+      <view class="btn btn-ghost btn-sm bs-scan-btn {{scanning ? 'on' : ''}}" bindtap="toggleScan">{{scanning ? '停止' : '扫描'}}</view>
+    </view>
+    <view class="bs-progress" wx:if="{{scanning || scanDone}}">
+      <view class="bs-progress-bar"><view class="bs-progress-fill" style="width: {{scanTotal ? (scanDone * 100 / scanTotal) : 0}}%"></view></view>
+      <text class="bs-progress-txt">已扫描 {{scanDone}} / {{scanTotal || '…'}}{{scanFinished ? ' · 结束' : ''}}</text>
+    </view>
+    <view class="bs-list" wx:if="{{scanList.length}}">
+      <view class="bs-item bs-item-hit" wx:for="{{scanList}}" wx:key="base" data-url="{{item.base}}" bindtap="useAddr">
+        <image class="bs-ico" src="/images/icons/server.png" mode="aspectFit" />
+        <view class="bs-item-main">
+          <text class="bs-txt">{{item.base}}</text>
+          <text class="bs-sub">发现 PrintGate{{item.version ? ' v' + item.version : ''}}</text>
+        </view>
+        <text class="bs-add">使用</text>
+      </view>
+    </view>
+    <view class="bs-empty" wx:if="{{scanFinished && !scanList.length}}">没扫到。手机和电脑要在同一个 WiFi；真机还需在开发者工具打开调试模式（或直接填 https 域名）。</view>
+
+    <view class="bs-presets">
+      <view class="chip {{baseInput === 'http://127.0.0.1:8080' ? 'on' : ''}}" bindtap="usePreset" data-preset="http://127.0.0.1:8080">本机联调 127.0.0.1:8080</view>
+    </view>
+    <view class="btn btn-primary btn-block bs-save" bindtap="saveBase">保存并重新连接</view>
+  </pg-sheet>
+
+  <privacy-modal />
+</view>

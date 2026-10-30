@@ -1,0 +1,31 @@
+.admin-home { padding-bottom: 40rpx; }
+
+.denied { display: flex; flex-direction: column; align-items: center; padding: 140rpx 60rpx; }
+.denied image { width: 120rpx; height: 120rpx; }
+.d-title { font-size: 32rpx; font-weight: 700; color: var(--pg-ink); margin-top: 24rpx; }
+.d-sub { font-size: 24rpx; color: var(--pg-ink-3); line-height: 1.7; text-align: center; margin-top: 16rpx; }
+
+.bento-num { line-height: 1.15; }
+.bento-item:active { background: var(--pg-card-2); }
+
+.mp-row {
+  display: flex; align-items: center;
+  padding: 20rpx 0;
+}
+.mp-row + .mp-row { border-top: 2rpx solid var(--pg-line); }
+.mp-dot { width: 14rpx; height: 14rpx; border-radius: 50%; margin-right: 16rpx; flex-shrink: 0; }
+.dot-ok { background: var(--pg-success); }
+.dot-primary { background: var(--pg-primary); }
+.dot-danger { background: var(--pg-danger); }
+.mp-name { flex: 1; min-width: 0; font-size: 27rpx; color: var(--pg-ink); font-weight: 500; }
+.mp-default {
+  font-size: 18rpx; color: var(--pg-primary);
+  border: 2rpx solid var(--pg-primary); border-radius: 8rpx;
+  padding: 2rpx 10rpx; margin-left: 14rpx; flex-shrink: 0;
+}
+.mp-empty { font-size: 24rpx; color: var(--pg-ink-3); text-align: center; padding: 24rpx 0; }
+
+/* 入口图标底色 */
+.ic-soft { background: var(--pg-primary-soft); }
+.ic-warn { background: var(--pg-warning-soft); }
+.ic-info { background: var(--pg-info-soft); }

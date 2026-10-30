@@ -1,0 +1,32 @@
+/* 自包含 token：与 app.wxss 一致，保证组件内暗夜可靠 */
+.card {
+  --pg-card: #FFFFFF;
+  --pg-card-2: #FAFCFC;
+  --pg-ink: #16262E;
+  --pg-ink-3: #7C8B94;
+  --pg-shadow: 0 6rpx 24rpx rgba(22, 38, 46, 0.06);
+  --pg-r-m: 20rpx;
+  --pg-r-l: 28rpx;
+}
+.card.theme-dark {
+  --pg-card: #1A242A;
+  --pg-card-2: #202C33;
+  --pg-ink: #E8EEF0;
+  --pg-ink-3: #7A8B92;
+  --pg-shadow: 0 6rpx 24rpx rgba(0, 0, 0, 0.35);
+}
+.card {
+  background: var(--pg-card);
+  border-radius: var(--pg-r-l);
+  box-shadow: var(--pg-shadow);
+  padding: 28rpx;
+  margin: 0 24rpx 22rpx;
+}
+.card-pad0 { padding: 0; }
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18rpx;
+}
+.card-title { font-size: 30rpx; font-weight: 600; color: var(--pg-ink); }
+.card-extra { font-size: 23rpx; color: var(--pg-ink-3); }
+.card-body-plain { padding-top: 26rpx; }

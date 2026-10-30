@@ -299,5 +299,17 @@ async function idcardPdf(outPath, { front = null, back = null, media = 'A4', mar
   return outPath;
 }
 
-module.exports = { textPdf, watermarkPdf, imagesPdf, applyWatermark, cjkFont, readableImage, pageSize, PAGE, idcardPdf, sharpReady, sharpError: () => sharpLoadError };
+// 非 JPG/PNG（webp / heic / gif / bmp）pdfkit 吃不下，先用 sharp 转成 PNG 再进 PDF。
+// sharp 不可用时返回 false，由调用方给出「请改用 JPG/PNG」的提示，而不是整条请求 500。
+async function toPng(src, out) {
+  if (!sharpReady()) return false;
+  try {
+    await sharp(src, { failOn: 'none' }).rotate().png().toFile(out);
+    return fs.existsSync(out);
+  } catch (_) {
+    return false;
+  }
+}
+
+module.exports = { textPdf, watermarkPdf, imagesPdf, applyWatermark, cjkFont, readableImage, toPng, pageSize, PAGE, idcardPdf, sharpReady, sharpError: () => sharpLoadError };
 

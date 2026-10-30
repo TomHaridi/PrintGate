@@ -96,7 +96,9 @@ function readTail(file, lines = 200) {
 }
 
 function logs(name, lines = 200) {
-  const meta = LOG_FILES[name];
+  // 不能直接 LOG_FILES[name]：__proto__ / constructor 会命中原型上的东西，
+  // 虽然读不到文件，但会返回 200 + 一堆 undefined，看着像成功。
+  const meta = Object.prototype.hasOwnProperty.call(LOG_FILES, name) ? LOG_FILES[name] : null;
   if (!meta) return { ok: false, msg: '未知日志' };
   const exists = fs.existsSync(meta.file);
   return {

@@ -1,7 +1,7 @@
 {
   "name": "printgate-web",
   "private": true,
-  "version": "2.4.9",
+  "version": "2.4.19",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -17,6 +17,16 @@ function expiredByPolicy(payload) {
   return (Date.now() / 1000 - Number(payload.iat)) > hours * 3600;
 }
 
+// 密码变更后，之前签发的令牌全部失效。
+// JWT 的 iat 精度是秒，改密时间用 ISO 存的毫秒，这里统一按秒比较并留 5 秒容差，
+// 否则"改密后立刻用新令牌"会被自己的时间戳卡掉。
+function staleAfterPasswordChange(payload, user) {
+  const changed = user && user.pwd_changed_at ? Date.parse(user.pwd_changed_at) || 0 : 0;
+  if (!changed) return false;
+  // 旧令牌没有 pwdv 字段（升级前签发的），在改密用户这里一律视为过期
+  return Number((payload && payload.pwdv) || 0) !== changed;
+}
+
 function requireAdmin(req, res, next) {
   const payload = sec.verifyAdmin(bearer(req));
   if (!payload || payload.scope !== 'admin') {
@@ -29,27 +39,29 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// 解析 API Key（不发响应，只返回行记录）。原来只在 requireAdminOrKey 里内联写过一份，
+// 而 requirePrintAccessOrKey 却去读一个从未被赋值的 req.apiKey —— 结果 Key 上传文件永远 401。
+function resolveApiKey(req) {
+  const raw = req.headers['x-api-key'] || bearer(req);
+  if (!raw || !String(raw).startsWith('pg_')) return null;
+  const hash = crypto.createHash('sha256').update(String(raw)).digest('hex');
+  const row = db.prepare('SELECT * FROM api_keys WHERE token_hash = ? AND revoked = 0').get(hash);
+  if (!row) return null;
+  if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) return null;
+  db.prepare('UPDATE api_keys SET last_used_at = ?, last_used_ip = ? WHERE id = ?')
+    .run(new Date().toISOString(), sec.clientIp(req), row.id);
+  return row;
+}
+
 // 管理员或 API Key 均可访问（供小程序/第三方中转调用）
 function requireAdminOrKey(req, res, next) {
   const payload = sec.verifyAdmin(bearer(req));
   if (payload && payload.scope === 'admin') { req.admin = { via: 'session' }; return next(); }
-  const key = req.headers['x-api-key'] || bearer(req);
-  if (key && String(key).startsWith('pg_')) {
-    const hash = crypto.createHash('sha256').update(String(key)).digest('hex');
-    const row = db.prepare('SELECT * FROM api_keys WHERE token_hash = ? AND revoked = 0').get(hash);
-    if (row) {
-      if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
-        return res.status(401).json({ ok: false, msg: 'API Key 已过期' });
-      }
-      db.prepare('UPDATE api_keys SET last_used_at = ?, last_used_ip = ? WHERE id = ?')
-        .run(new Date().toISOString(), sec.clientIp(req), row.id);
-      req.admin = { via: 'apikey', keyId: row.id };
-      return next();
-    }
-    return res.status(401).json({ ok: false, msg: 'API Key 无效或已被吊销' });
-  }
-  return res.status(401).json({ ok: false, msg: '请先登录' });
+  const row = resolveApiKey(req);
+  if (row) { req.apiKey = row; req.admin = { via: 'apikey', keyId: row.id }; return next(); }
+  return res.status(401).json({ ok: false, msg: '请先登录，或提供有效的 API Key' });
 }
+
 
 function requireMiniUser(req, res, next) {
   const payload = sec.verify(bearer(req));
@@ -64,6 +76,10 @@ function requireMiniUser(req, res, next) {
   }
   if (expiredByPolicy(payload)) {
     return res.status(401).json({ ok: false, code: 'UNAUTHORIZED', msg: '登录已失效，请重新进入小程序' });
+  }
+  // 改过密码/被管理员重置过：比改密时刻更早签发的令牌立即作废（留 5 秒时钟容差）
+  if (staleAfterPasswordChange(payload, user)) {
+    return res.status(401).json({ ok: false, code: 'TOKEN_STALE', msg: '密码已修改，请重新登录' });
   }
   req.user = user;
   next();
@@ -103,6 +119,8 @@ function requirePrintAccess(req, res, next) {
 
 // 允许 API Key 调用（脚本/第三方）时用这个：Key 视为管理员身份，但不带用户归属
 function requirePrintAccessOrKey(req, res, next) {
+  // Key 优先：脚本/第三方没有用户会话，靠这里放行
+  if (!req.apiKey) req.apiKey = resolveApiKey(req);
   if (req.apiKey) { req.actor = { kind: 'key' }; return next(); }
   return requirePrintAccess(req, res, next);
 }
@@ -135,4 +153,5 @@ function isAdminOpenid(openid) {
   return list.includes(openid);
 }
 
-module.exports = { requirePrintAccess, requirePrintAccessOrKey, requireAdmin, requireAdminOrKey, requireMiniUser, requireApprovedUser, requireMiniAdmin, publicUser, isAdminOpenid, bearer };
+module.exports = {
+  resolveApiKey, requirePrintAccess, requirePrintAccessOrKey, requireAdmin, requireAdminOrKey, requireMiniUser, requireApprovedUser, requireMiniAdmin, publicUser, isAdminOpenid, bearer };

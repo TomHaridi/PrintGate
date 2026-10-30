@@ -1,0 +1,31 @@
+.filter-card { padding: 14rpx 18rpx; margin-bottom: 20rpx; }
+.tabs { width: 100%; }
+.tab-wrap { display: flex; gap: 16rpx; }
+.tab {
+  flex-shrink: 0; height: 54rpx; line-height: 54rpx;
+  padding: 0 24rpx; border-radius: 27rpx;
+  background: var(--pg-fill); font-size: 23rpx; color: var(--pg-ink-2);
+}
+.tab.on { background: var(--pg-primary); color: var(--pg-on-primary); font-weight: 600; }
+
+.denied-tip { text-align: center; color: var(--pg-ink-3); font-size: 26rpx; padding: 80rpx 0; }
+.empty-tip { text-align: center; color: var(--pg-ink-3); font-size: 24rpx; padding: 80rpx 0; }
+
+.t-row {
+  background: var(--pg-card); border-radius: var(--pg-r-l);
+  margin: 0 24rpx 20rpx; padding: 24rpx;
+  box-shadow: var(--pg-shadow);
+}
+.t-head { display: flex; align-items: center; justify-content: space-between; }
+.t-time { font-size: 22rpx; color: var(--pg-ink-3); }
+.t-name { font-size: 28rpx; font-weight: 600; color: var(--pg-ink); margin-top: 14rpx; }
+.t-meta { display: flex; flex-wrap: wrap; gap: 6rpx 24rpx; font-size: 22rpx; color: var(--pg-ink-3); margin-top: 10rpx; }
+.t-error {
+  font-size: 22rpx; color: var(--pg-danger);
+  background: var(--pg-danger-soft); border-radius: 10rpx;
+  padding: 12rpx 16rpx; margin-top: 14rpx;
+}
+.t-acts { display: flex; gap: 14rpx; margin-top: 18rpx; justify-content: flex-end; }
+.t-btn { font-size: 23rpx; border-radius: 10rpx; padding: 12rpx 34rpx; }
+.t-btn-ok { color: var(--pg-on-primary); background: var(--pg-primary); }
+.t-btn-del { color: var(--pg-danger); background: var(--pg-danger-soft); }

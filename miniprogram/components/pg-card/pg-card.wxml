@@ -1,0 +1,9 @@
+<view class="card {{plain ? 'card-pad0' : ''}} {{dark ? 'theme-dark' : ''}}">
+  <view class="card-head" wx:if="{{title}}" catchtap="onHeadTap">
+    <view class="card-title">{{title}}</view>
+    <view class="card-extra" wx:if="{{extra}}">{{extra}}</view>
+  </view>
+  <view class="card-body {{plain ? 'card-body-plain' : ''}}">
+    <slot />
+  </view>
+</view>

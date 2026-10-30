@@ -1,0 +1,10 @@
+{
+  "navigationStyle": "custom",
+  "usingComponents": {
+    "nav-bar": "/components/nav-bar/nav-bar",
+    "status-tag": "/components/status-tag/status-tag",
+    "pg-sheet": "/components/pg-sheet/pg-sheet",
+    "pg-dialog": "/components/pg-dialog/pg-dialog",
+    "privacy-modal": "/components/privacy-modal/privacy-modal"
+  }
+}
