@@ -34,6 +34,7 @@ struct PrintGateApp: App {
 
 struct RootView: View {
     @Environment(AppModel.self) private var app
+    @Environment(ImportInbox.self) private var inbox
     @State private var crashInfo: String?
 
     var body: some View {

@@ -370,10 +370,7 @@ struct FilePreviewSheet: View {
             .dfNavigationBar(title: file.filename, displayMode: .inline) {
                 DFButton("关闭") { dismiss() }.dfButtonStyle(.ghost)
             }
-            .task { await load(); await drainInbox() }
-            .onChange(of: inbox.urls.count) { _, _ in
-                Task { await drainInbox() }
-            }
+            .task { await load() }
         }
     }
 
