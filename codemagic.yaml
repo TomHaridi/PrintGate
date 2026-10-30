@@ -48,3 +48,52 @@ workflows:
     artifacts:
       - build/PrintGate-unsigned.ipa
       - build/ios/archive/**/*.xcarchive
+
+  # ---------- 原生 SwiftUI 版（DesignFoundation）----------
+  # 与 Flutter 版并行存在：二选一，互不影响。
+  ios-swiftui:
+    name: PrintGate SwiftUI (DesignFoundation, unsigned IPA)
+    working_directory: ios-swiftui
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      xcode: latest
+      vars:
+        SCHEME: PrintGate
+    scripts:
+      - name: Xcode 版本
+        script: xcodebuild -version
+
+      - name: 解析 DesignFoundation（SPM）
+        script: |
+          set -euo pipefail
+          xcodebuild -resolvePackageDependencies -project PrintGate.xcodeproj -scheme "$SCHEME"
+
+      - name: 编译（Release，未签名）
+        script: |
+          set -euo pipefail
+          xcodebuild \
+            -project PrintGate.xcodeproj \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: 打包未签名 IPA
+        script: |
+          set -euo pipefail
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
+          test -n "$APP_PATH" || { echo "没有产物"; ls -R build/Build/Products | head -40; exit 1; }
+          rm -rf build/Payload PrintGate-unsigned.ipa
+          mkdir -p build/Payload
+          cp -R "$APP_PATH" "build/Payload/PrintGate.app"
+          ( cd build && zip -qry ../PrintGate-unsigned.ipa Payload )
+          ls -lh PrintGate-unsigned.ipa
+
+    artifacts:
+      - PrintGate-unsigned.ipa
+      - build/Build/Products/Release-iphoneos/*.app
+      - /tmp/xcodebuild_logs/*.log

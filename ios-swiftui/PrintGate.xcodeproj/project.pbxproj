@@ -1,0 +1,441 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		000000000000000000000002 /* API.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000001 /* API.swift */; };
+		000000000000000000000004 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000003 /* AppModel.swift */; };
+		000000000000000000000006 /* Compose.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000005 /* Compose.swift */; };
+		000000000000000000000008 /* Format.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000007 /* Format.swift */; };
+		00000000000000000000000A /* LanScan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000009 /* LanScan.swift */; };
+		00000000000000000000000C /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000000B /* Models.swift */; };
+		00000000000000000000000E /* Store.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000000D /* Store.swift */; };
+		000000000000000000000010 /* PrintGateApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000000F /* PrintGateApp.swift */; };
+		000000000000000000000012 /* AdminFullSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000011 /* AdminFullSettingsView.swift */; };
+		000000000000000000000014 /* AdminHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000013 /* AdminHomeView.swift */; };
+		000000000000000000000016 /* AdminPrintersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000015 /* AdminPrintersView.swift */; };
+		000000000000000000000018 /* AdminSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000017 /* AdminSettingsView.swift */; };
+		00000000000000000000001A /* AdminTasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000019 /* AdminTasksView.swift */; };
+		00000000000000000000001C /* AdminUsersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000001B /* AdminUsersView.swift */; };
+		00000000000000000000001E /* FilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000001D /* FilesView.swift */; };
+		000000000000000000000020 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000001F /* HistoryView.swift */; };
+		000000000000000000000022 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000021 /* HomeView.swift */; };
+		000000000000000000000024 /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000023 /* LoginView.swift */; };
+		000000000000000000000026 /* MeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000025 /* MeView.swift */; };
+		000000000000000000000028 /* PrintView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000027 /* PrintView.swift */; };
+		00000000000000000000002A /* ScanSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000029 /* ScanSheet.swift */; };
+		00000000000000000000002C /* ServerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000002B /* ServerSheet.swift */; };
+		00000000000000000000002E /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000002D /* SetupView.swift */; };
+		000000000000000000000030 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00000000000000000000002F /* AppTheme.swift */; };
+		000000000000000000000032 /* ThemeSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000031 /* ThemeSheet.swift */; };
+		000000000000000000000034 /* UI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000033 /* UI.swift */; };
+		000000000000000000000036 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 000000000000000000000035 /* Assets.xcassets */; };
+		00000000000000000000003B /* DesignFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 00000000000000000000003A /* DesignFoundation */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		000000000000000000000001 /* API.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = API.swift; sourceTree = "<group>"; };
+		000000000000000000000003 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		000000000000000000000005 /* Compose.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Compose.swift; sourceTree = "<group>"; };
+		000000000000000000000007 /* Format.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Format.swift; sourceTree = "<group>"; };
+		000000000000000000000009 /* LanScan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LanScan.swift; sourceTree = "<group>"; };
+		00000000000000000000000B /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		00000000000000000000000D /* Store.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Store.swift; sourceTree = "<group>"; };
+		00000000000000000000000F /* PrintGateApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrintGateApp.swift; sourceTree = "<group>"; };
+		000000000000000000000011 /* AdminFullSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminFullSettingsView.swift; sourceTree = "<group>"; };
+		000000000000000000000013 /* AdminHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminHomeView.swift; sourceTree = "<group>"; };
+		000000000000000000000015 /* AdminPrintersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminPrintersView.swift; sourceTree = "<group>"; };
+		000000000000000000000017 /* AdminSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminSettingsView.swift; sourceTree = "<group>"; };
+		000000000000000000000019 /* AdminTasksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminTasksView.swift; sourceTree = "<group>"; };
+		00000000000000000000001B /* AdminUsersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminUsersView.swift; sourceTree = "<group>"; };
+		00000000000000000000001D /* FilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilesView.swift; sourceTree = "<group>"; };
+		00000000000000000000001F /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
+		000000000000000000000021 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		000000000000000000000023 /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		000000000000000000000025 /* MeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeView.swift; sourceTree = "<group>"; };
+		000000000000000000000027 /* PrintView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrintView.swift; sourceTree = "<group>"; };
+		000000000000000000000029 /* ScanSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanSheet.swift; sourceTree = "<group>"; };
+		00000000000000000000002B /* ServerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerSheet.swift; sourceTree = "<group>"; };
+		00000000000000000000002D /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
+		00000000000000000000002F /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTheme.swift; sourceTree = "<group>"; };
+		000000000000000000000031 /* ThemeSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeSheet.swift; sourceTree = "<group>"; };
+		000000000000000000000033 /* UI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UI.swift; sourceTree = "<group>"; };
+		000000000000000000000035 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		000000000000000000000037 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; }
+		000000000000000000000038 /* PrintGate.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PrintGate.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		000000000000000000000040 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				00000000000000000000003B /* DesignFoundation in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		00000000000000000000003D = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000003C /* PrintGate */,
+				00000000000000000000003E /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		00000000000000000000003C /* PrintGate */ = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000004A /* Assets.xcassets */,
+				00000000000000000000004D /* Core */,
+				00000000000000000000000F /* PrintGateApp.swift */,
+				00000000000000000000004E /* Screens */,
+				000000000000000000000050 /* Theme */,
+				000000000000000000000035 /* Assets.xcassets */
+				000000000000000000000037 /* Info.plist */
+			);
+			path = PrintGate;
+			sourceTree = "<group>";
+		};
+		00000000000000000000004B /* AppIcon.appiconset */ = {
+			isa = PBXGroup;
+			children = (
+
+			);
+			path = AppIcon.appiconset;
+			sourceTree = "<group>";
+		};
+		00000000000000000000004C /* Logo.imageset */ = {
+			isa = PBXGroup;
+			children = (
+
+			);
+			path = Logo.imageset;
+			sourceTree = "<group>";
+		};
+		00000000000000000000004A /* Assets.xcassets */ = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000004B /* AppIcon.appiconset */,
+				00000000000000000000004C /* Logo.imageset */,
+			);
+			path = Assets.xcassets;
+			sourceTree = "<group>";
+		};
+		00000000000000000000004D /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000001 /* API.swift */,
+				000000000000000000000003 /* AppModel.swift */,
+				000000000000000000000005 /* Compose.swift */,
+				000000000000000000000007 /* Format.swift */,
+				000000000000000000000009 /* LanScan.swift */,
+				00000000000000000000000B /* Models.swift */,
+				00000000000000000000000D /* Store.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		00000000000000000000004F /* Admin */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000011 /* AdminFullSettingsView.swift */,
+				000000000000000000000013 /* AdminHomeView.swift */,
+				000000000000000000000015 /* AdminPrintersView.swift */,
+				000000000000000000000017 /* AdminSettingsView.swift */,
+				000000000000000000000019 /* AdminTasksView.swift */,
+				00000000000000000000001B /* AdminUsersView.swift */,
+			);
+			path = Admin;
+			sourceTree = "<group>";
+		};
+		00000000000000000000004E /* Screens */ = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000004F /* Admin */,
+				00000000000000000000001D /* FilesView.swift */,
+				00000000000000000000001F /* HistoryView.swift */,
+				000000000000000000000021 /* HomeView.swift */,
+				000000000000000000000023 /* LoginView.swift */,
+				000000000000000000000025 /* MeView.swift */,
+				000000000000000000000027 /* PrintView.swift */,
+				000000000000000000000029 /* ScanSheet.swift */,
+				00000000000000000000002B /* ServerSheet.swift */,
+				00000000000000000000002D /* SetupView.swift */,
+			);
+			path = Screens;
+			sourceTree = "<group>";
+		};
+		000000000000000000000050 /* Theme */ = {
+			isa = PBXGroup;
+			children = (
+				00000000000000000000002F /* AppTheme.swift */,
+				000000000000000000000031 /* ThemeSheet.swift */,
+				000000000000000000000033 /* UI.swift */,
+			);
+			path = Theme;
+			sourceTree = "<group>";
+		};
+		00000000000000000000003E /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				000000000000000000000038 /* PrintGate.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		000000000000000000000042 /* PrintGate */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 000000000000000000000045 /* Build configuration list for PBXNativeTarget "PrintGate" */;
+			buildPhases = (
+				00000000000000000000003F /* Sources */,
+				000000000000000000000040 /* Frameworks */,
+				000000000000000000000041 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PrintGate;
+			packageProductDependencies = (
+				00000000000000000000003A /* DesignFoundation */,
+			);
+			productName = PrintGate;
+			productReference = 000000000000000000000038 /* PrintGate.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		000000000000000000000043 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					000000000000000000000042 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = 000000000000000000000044 /* Build configuration list for PBXProject "PrintGate" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = zh_CN;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				zh_CN,
+				Base,
+			);
+			mainGroup = 00000000000000000000003D;
+			packageReferences = (
+				000000000000000000000039 /* XCRemoteSwiftPackageReference "DesignFoundation" */,
+			);
+			productRefGroup = 00000000000000000000003E /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				000000000000000000000042 /* PrintGate */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		000000000000000000000041 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				000000000000000000000036 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		00000000000000000000003F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				000000000000000000000002 /* API.swift in Sources */,
+				000000000000000000000004 /* AppModel.swift in Sources */,
+				000000000000000000000006 /* Compose.swift in Sources */,
+				000000000000000000000008 /* Format.swift in Sources */,
+				00000000000000000000000A /* LanScan.swift in Sources */,
+				00000000000000000000000C /* Models.swift in Sources */,
+				00000000000000000000000E /* Store.swift in Sources */,
+				000000000000000000000010 /* PrintGateApp.swift in Sources */,
+				000000000000000000000012 /* AdminFullSettingsView.swift in Sources */,
+				000000000000000000000014 /* AdminHomeView.swift in Sources */,
+				000000000000000000000016 /* AdminPrintersView.swift in Sources */,
+				000000000000000000000018 /* AdminSettingsView.swift in Sources */,
+				00000000000000000000001A /* AdminTasksView.swift in Sources */,
+				00000000000000000000001C /* AdminUsersView.swift in Sources */,
+				00000000000000000000001E /* FilesView.swift in Sources */,
+				000000000000000000000020 /* HistoryView.swift in Sources */,
+				000000000000000000000022 /* HomeView.swift in Sources */,
+				000000000000000000000024 /* LoginView.swift in Sources */,
+				000000000000000000000026 /* MeView.swift in Sources */,
+				000000000000000000000028 /* PrintView.swift in Sources */,
+				00000000000000000000002A /* ScanSheet.swift in Sources */,
+				00000000000000000000002C /* ServerSheet.swift in Sources */,
+				00000000000000000000002E /* SetupView.swift in Sources */,
+				000000000000000000000030 /* AppTheme.swift in Sources */,
+				000000000000000000000032 /* ThemeSheet.swift in Sources */,
+				000000000000000000000034 /* UI.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		000000000000000000000046 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		000000000000000000000047 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				SDKROOT = iphoneos;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_VERSION = 5.0;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		000000000000000000000048 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PrintGate/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.printgate.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		000000000000000000000049 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGNING_REQUIRED = NO;
+				CODE_SIGN_IDENTITY = "";
+				CODE_SIGN_STYLE = Manual;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = PrintGate/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.printgate.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		000000000000000000000044 /* Build configuration list for PBXProject "PrintGate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				000000000000000000000046 /* Debug */,
+				000000000000000000000047 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		000000000000000000000045 /* Build configuration list for PBXNativeTarget "PrintGate" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				000000000000000000000048 /* Debug */,
+				000000000000000000000049 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		000000000000000000000039 /* XCRemoteSwiftPackageReference "DesignFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/NerdSnipe-Inc/design-foundation";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		00000000000000000000003A /* DesignFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 000000000000000000000039 /* XCRemoteSwiftPackageReference "DesignFoundation" */;
+			productName = DesignFoundation;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 000000000000000000000043 /* Project object */;
+}

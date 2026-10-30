@@ -31,3 +31,9 @@ miniprogram-old/
 
 # ---- 构建产物 ----
 dist/
+
+# ---- 原生 SwiftUI 构建产物 ----
+ios-swiftui/build/
+ios-swiftui/*.ipa
+ios-swiftui/PrintGate.xcodeproj/project.xcworkspace/xcuserdata/
+ios-swiftui/PrintGate.xcodeproj/xcuserdata/
