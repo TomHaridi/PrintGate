@@ -92,42 +92,17 @@
 		00000000000000000000003C /* PrintGate */ = {
 			isa = PBXGroup;
 			children = (
-				00000000000000000000004A /* Assets.xcassets */,
-				00000000000000000000004D /* Core */,
+				00000000000000000000004A /* Core */,
 				00000000000000000000000F /* PrintGateApp.swift */,
-				00000000000000000000004E /* Screens */,
-				000000000000000000000050 /* Theme */,
+				00000000000000000000004B /* Screens */,
+				00000000000000000000004D /* Theme */,
+				000000000000000000000035 /* Assets.xcassets */,
 				000000000000000000000037 /* Info.plist */,
 			);
 			path = PrintGate;
 			sourceTree = "<group>";
 		};
-		00000000000000000000004B /* AppIcon.appiconset */ = {
-			isa = PBXGroup;
-			children = (
-
-			);
-			path = AppIcon.appiconset;
-			sourceTree = "<group>";
-		};
-		00000000000000000000004C /* Logo.imageset */ = {
-			isa = PBXGroup;
-			children = (
-
-			);
-			path = Logo.imageset;
-			sourceTree = "<group>";
-		};
-		00000000000000000000004A /* Assets.xcassets */ = {
-			isa = PBXGroup;
-			children = (
-				00000000000000000000004B /* AppIcon.appiconset */,
-				00000000000000000000004C /* Logo.imageset */,
-			);
-			path = Assets.xcassets;
-			sourceTree = "<group>";
-		};
-		00000000000000000000004D /* Core */ = {
+		00000000000000000000004A /* Core */ = {
 			isa = PBXGroup;
 			children = (
 				000000000000000000000001 /* API.swift */,
@@ -141,7 +116,7 @@
 			path = Core;
 			sourceTree = "<group>";
 		};
-		00000000000000000000004F /* Admin */ = {
+		00000000000000000000004C /* Admin */ = {
 			isa = PBXGroup;
 			children = (
 				000000000000000000000011 /* AdminFullSettingsView.swift */,
@@ -154,10 +129,10 @@
 			path = Admin;
 			sourceTree = "<group>";
 		};
-		00000000000000000000004E /* Screens */ = {
+		00000000000000000000004B /* Screens */ = {
 			isa = PBXGroup;
 			children = (
-				00000000000000000000004F /* Admin */,
+				00000000000000000000004C /* Admin */,
 				00000000000000000000001D /* FilesView.swift */,
 				00000000000000000000001F /* HistoryView.swift */,
 				000000000000000000000021 /* HomeView.swift */,
@@ -171,7 +146,7 @@
 			path = Screens;
 			sourceTree = "<group>";
 		};
-		000000000000000000000050 /* Theme */ = {
+		00000000000000000000004D /* Theme */ = {
 			isa = PBXGroup;
 			children = (
 				00000000000000000000002F /* AppTheme.swift */,

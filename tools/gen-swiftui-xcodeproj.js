@@ -43,6 +43,7 @@ function walk(dir, prefix = '') {
     if (entry.name.startsWith('.')) continue;
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
     if (entry.isDirectory()) {
+      if (entry.name === 'Assets.xcassets') continue; // 资源目录作为 folder.assetcatalog 的 fileReference 单独挂载，不当作 group
       out.push({ type: 'group', name: entry.name, path: rel, children: walk(path.join(dir, entry.name), rel) });
     } else if (entry.name.endsWith('.swift')) {
       out.push({ type: 'file', name: entry.name, path: rel });
@@ -208,6 +209,7 @@ ${sub.join('\n')}
 
   const appChildren = [];
   emit(tree, appChildren);
+  appChildren.push(`\t\t\t\t${assetsRef} /* Assets.xcassets */,`);
   appChildren.push(`\t\t\t\t${infoRef} /* Info.plist */,`);
 
   const srcBuildFiles = swiftFiles.map((f) => `\t\t\t\t${buildFile[f.path]} /* ${f.name} in Sources */,`).join('\n');
