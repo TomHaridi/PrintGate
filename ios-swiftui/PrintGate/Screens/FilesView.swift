@@ -47,7 +47,7 @@ struct FilesView: View {
                 }
             }
             .screenBackground()
-            .dfNavigationBar(title: "文件", displayMode: .large) {
+            .dfNavigationBar(title: "文件", displayMode: .inline) {
                 Button {
                     showPhotos = true
                 } label: {

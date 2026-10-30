@@ -47,7 +47,7 @@ struct MeView: View {
                 .padding(.bottom, 24)
             }
             .screenBackground()
-            .dfNavigationBar(title: "我的", displayMode: .large)
+            .dfNavigationBar(title: "我的", displayMode: .inline)
             .task { await refreshVersion() }
             .dfSheet(isPresented: $showTheme) { ThemeSheet() }
             .dfSheet(isPresented: $showServer) { ServerSheet { _ in } }

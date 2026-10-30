@@ -70,7 +70,7 @@ struct HistoryView: View {
                 }
             }
             .screenBackground()
-            .dfNavigationBar(title: "记录", displayMode: .large) {
+            .dfNavigationBar(title: "记录", displayMode: .inline) {
                 Button {
                     Task { await load() }
                 } label: {

@@ -37,3 +37,6 @@ ios-swiftui/build/
 ios-swiftui/*.ipa
 ios-swiftui/PrintGate.xcodeproj/project.xcworkspace/xcuserdata/
 ios-swiftui/PrintGate.xcodeproj/xcuserdata/
+
+# ---- IPA 下载页（本地发布产物）----
+ipa-download/

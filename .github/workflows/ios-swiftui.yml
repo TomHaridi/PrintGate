@@ -29,20 +29,23 @@ jobs:
             -configuration Release -sdk iphoneos -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO build
 
-      - name: Package unsigned IPA
+      - name: Package unsigned IPA (filename with version)
         working-directory: ios-swiftui
         run: |
           APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
           test -n "$APP_PATH" || { echo "no product"; exit 1; }
-          rm -rf build/Payload PrintGate-unsigned.ipa
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Info.plist")
+          IPA_NAME="PrintGate-${VERSION}-unsigned.ipa"
+          echo "version=$VERSION -> $IPA_NAME"
+          rm -rf build/Payload "$IPA_NAME"
           mkdir -p build/Payload
           cp -R "$APP_PATH" "build/Payload/PrintGate.app"
-          ( cd build && zip -qry ../PrintGate-unsigned.ipa Payload )
-          ls -lh PrintGate-unsigned.ipa
+          ( cd build && zip -qry "../$IPA_NAME" Payload )
+          ls -lh "$IPA_NAME"
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: PrintGate-SwiftUI-unsigned
-          path: ios-swiftui/PrintGate-unsigned.ipa
+          path: ios-swiftui/PrintGate-*-unsigned.ipa
           if-no-files-found: error

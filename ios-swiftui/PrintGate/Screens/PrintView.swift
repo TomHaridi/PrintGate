@@ -114,7 +114,7 @@ struct PrintView: View {
                 .padding(.bottom, 18)
             }
             .screenBackground()
-            .dfNavigationBar(title: "打印", displayMode: .large) {
+            .dfNavigationBar(title: "打印", displayMode: .inline) {
                 Button {
                     Task { await loadPrinters() }
                 } label: {

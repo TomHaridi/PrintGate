@@ -89,18 +89,24 @@ workflows:
             CODE_SIGNING_REQUIRED=NO \
             build
 
-      - name: 打包未签名 IPA
+      - name: 打包未签名 IPA（文件名带版本号）
         script: |
           set -euo pipefail
           APP_PATH=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -1)
           test -n "$APP_PATH" || { echo "没有产物"; ls -R build/Build/Products | head -40; exit 1; }
-          rm -rf build/Payload PrintGate-unsigned.ipa
+          # 从 Info.plist 动态读版本号，文件名形如 PrintGate-1.1.0-unsigned.ipa
+          VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Info.plist")
+          BUILD_NUM=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PATH/Info.plist")
+          IPA_NAME="PrintGate-${VERSION}-unsigned.ipa"
+          echo "版本号 = ${VERSION} (build ${BUILD_NUM}) -> ${IPA_NAME}"
+          rm -rf build/Payload "$IPA_NAME"
           mkdir -p build/Payload
           cp -R "$APP_PATH" "build/Payload/PrintGate.app"
-          ( cd build && zip -qry ../PrintGate-unsigned.ipa Payload )
-          ls -lh PrintGate-unsigned.ipa
+          ( cd build && zip -qry "../$IPA_NAME" Payload )
+          ls -lh "$IPA_NAME"
+          echo "IPA_NAME=$IPA_NAME" >> "$CM_BUILD_DIR/envs.txt" 2>/dev/null || true
 
     artifacts:
-      - PrintGate-unsigned.ipa
+      - PrintGate-*-unsigned.ipa
       - build/Build/Products/Release-iphoneos/*.app
       - /tmp/xcodebuild_logs/*.log
