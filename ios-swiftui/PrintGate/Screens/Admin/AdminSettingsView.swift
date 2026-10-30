@@ -24,46 +24,52 @@ struct AdminSettingsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
-                DFCard {
-                    VStack(alignment: .leading, spacing: 12) {
-                        DFText("限额", scale: .label).dfTextViewStyle(.secondary)
-                        DFTextField("单文件上限（MB）", text: $maxFileMB, placeholder: "20")
-                            .keyboardType(.numberPad)
-                        DFTextField("单任务最多份数", text: $maxCopies, placeholder: "99")
-                            .keyboardType(.numberPad)
-                        DFTextField("单文件最多页数", text: $maxPages, placeholder: "50")
-                            .keyboardType(.numberPad)
-                        DFTextField("历史保留天数（0 = 永久）", text: $historyDays, placeholder: "30")
-                            .keyboardType(.numberPad)
+                AnyView(
+                    DFCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            DFText("限额", scale: .label).dfTextViewStyle(.secondary)
+                            DFTextField("单文件上限（MB）", text: $maxFileMB, placeholder: "20")
+                                .keyboardType(.numberPad)
+                            DFTextField("单任务最多份数", text: $maxCopies, placeholder: "99")
+                                .keyboardType(.numberPad)
+                            DFTextField("单文件最多页数", text: $maxPages, placeholder: "50")
+                                .keyboardType(.numberPad)
+                            DFTextField("历史保留天数（0 = 永久）", text: $historyDays, placeholder: "30")
+                                .keyboardType(.numberPad)
+                        }
                     }
-                }
+                )
 
-                DFCard {
-                    VStack(alignment: .leading, spacing: 4) {
-                        DFText("审批与安全", scale: .label).dfTextViewStyle(.secondary)
-                            .padding(.bottom, 4)
-                        DFToggle("新用户需要管理员审批", isOn: $approveNewUser)
-                        DFToggle("每个打印任务需管理员审批", isOn: $approveEachJob)
-                        DFToggle("允许扫码登录网页后台", isOn: $enableQrLogin)
-                        DFToggle("自动清理过期历史", isOn: $autoCleanHistory)
+                AnyView(
+                    DFCard {
+                        VStack(alignment: .leading, spacing: 4) {
+                            DFText("审批与安全", scale: .label).dfTextViewStyle(.secondary)
+                                .padding(.bottom, 4)
+                            DFToggle("新用户需要管理员审批", isOn: $approveNewUser)
+                            DFToggle("每个打印任务需管理员审批", isOn: $approveEachJob)
+                            DFToggle("允许扫码登录网页后台", isOn: $enableQrLogin)
+                            DFToggle("自动清理过期历史", isOn: $autoCleanHistory)
+                        }
                     }
-                }
+                )
 
-                DFCard {
-                    VStack(alignment: .leading, spacing: 10) {
-                        DFText("默认打印机", scale: .label).dfTextViewStyle(.secondary)
-                        if printers.isEmpty {
-                            DFText("服务端没有可用打印机", scale: .caption).dfTextViewStyle(.secondary)
-                        } else {
-                            DFPicker("默认打印机", selection: $defaultPrinter) {
-                                Text("不设置").tag("")
-                                ForEach(printers, id: \.self) { p in
-                                    Text(p).tag(p)
+                AnyView(
+                    DFCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            DFText("默认打印机", scale: .label).dfTextViewStyle(.secondary)
+                            if printers.isEmpty {
+                                DFText("服务端没有可用打印机", scale: .caption).dfTextViewStyle(.secondary)
+                            } else {
+                                DFPicker("默认打印机", selection: $defaultPrinter) {
+                                    Text("不设置").tag("")
+                                    ForEach(printers, id: \.self) { p in
+                                        Text(p).tag(p)
+                                    }
                                 }
                             }
                         }
                     }
-                }
+                )
 
                 if !error.isEmpty {
                     DFBanner(icon: "exclamationmark.triangle.fill", message: error, severity: .error, isDismissible: false, onDismiss: {})

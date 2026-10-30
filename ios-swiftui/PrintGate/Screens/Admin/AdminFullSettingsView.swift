@@ -117,15 +117,17 @@ struct AdminFullSettingsView: View {
             } else {
                 ForEach(groupedKeys.indices, id: \.self) { i in
                     let group = groupedKeys[i]
-                    DFCard {
-                        VStack(alignment: .leading, spacing: 6) {
-                            DFText(group.0, scale: .label).dfTextViewStyle(.secondary)
-                                .padding(.bottom, 2)
-                            ForEach(group.1, id: \.self) { key in
-                                row(key)
+                    AnyView(
+                        DFCard {
+                            VStack(alignment: .leading, spacing: 6) {
+                                DFText(group.0, scale: .label).dfTextViewStyle(.secondary)
+                                    .padding(.bottom, 2)
+                                ForEach(group.1, id: \.self) { key in
+                                    row(key)
+                                }
                             }
                         }
-                    }
+                    )
                 }
             }
         }
@@ -141,33 +143,38 @@ struct AdminFullSettingsView: View {
         return buckets.sorted { $0.key < $1.key }.map { ($0.key, $0.value.sorted()) }
     }
 
-    @ViewBuilder
-    private func row(_ key: String) -> some View {
+    /// 返回 AnyView 擦除类型：本页会按 /api/settings 动态渲染几十个设置项，
+    /// 若每项的具体类型都内联进 ForEach 的 TupleView，实例化时极易栈溢出。
+    private func row(_ key: String) -> AnyView {
         let value = settings[key]
         if let b = value as? Bool {
-            DFToggle(label(key), isOn: Binding(
-                get: { settings[key] as? Bool ?? b },
-                set: { settings[key] = $0 }
-            ))
-            .padding(.vertical, 2)
-        } else if let n = value as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() {
-            EditableRow(label: label(key), value: "\(n)") {
+            return AnyView(
+                DFToggle(label(key), isOn: Binding(
+                    get: { settings[key] as? Bool ?? b },
+                    set: { settings[key] = $0 }
+                ))
+                .padding(.vertical, 2)
+            )
+        }
+        if let n = value as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID() {
+            return AnyView(EditableRow(label: label(key), value: "\(n)") {
                 editText = "\(n)"
                 editKey = key
-            }
-        } else if let s = value as? String {
-            EditableRow(label: label(key), value: s.isEmpty ? "（空）" : s) {
+            })
+        }
+        if let s = value as? String {
+            return AnyView(EditableRow(label: label(key), value: s.isEmpty ? "（空）" : s) {
                 editText = s
                 editKey = key
-            }
-        } else if value is [Any] || value is [String: Any] {
-            EditableRow(label: label(key), value: "复杂值，App 内不改") { }
-        } else {
-            EditableRow(label: label(key), value: pgStr(value)) {
-                editText = pgStr(value)
-                editKey = key
-            }
+            })
         }
+        if value is [Any] || value is [String: Any] {
+            return AnyView(EditableRow(label: label(key), value: "复杂值，App 内不改") { })
+        }
+        return AnyView(EditableRow(label: label(key), value: pgStr(value)) {
+            editText = pgStr(value)
+            editKey = key
+        })
     }
 
     /// `maxCopies` → `maxCopies`，保持原文（配置键国际化没意义，但把驼峰拆开更好读）

@@ -17,7 +17,6 @@ struct FilesView: View {
     @State private var showPhotos = false
     @State private var showImport = false
     @State private var preview: PgFileItem?
-    @State private var showPreview = false
     @State private var pendingDelete: PgFileItem?
 
     var body: some View {
@@ -74,7 +73,10 @@ struct FilesView: View {
             .onChange(of: photoItems) { _, items in
                 Task { await uploadPhotos(items) }
             }
-            .dfSheet(isPresented: $showPreview) {
+            .dfSheet(isPresented: Binding(
+                get: { preview != nil },
+                set: { if !$0 { preview = nil } }
+            )) {
                 if let f = preview {
                     FilePreviewSheet(file: f) {
                         pendingDelete = f
@@ -117,7 +119,6 @@ struct FilesView: View {
                     Spacer(minLength: 4)
                     Button {
                         preview = f
-                        showPreview = true
                     } label: {
                         DFIcon("eye", size: 18).foregroundStyle(theme.colors.textSecondary)
                     }
@@ -127,7 +128,7 @@ struct FilesView: View {
                 HStack(spacing: 8) {
                     DFButton("打印") { printDirect(f) }
                         .dfButtonStyle(.tinted)
-                    DFButton("预览") { preview = f; showPreview = true }
+                    DFButton("预览") { preview = f }
                         .dfButtonStyle(.outlined)
                     Spacer()
                     Button {
@@ -255,13 +256,15 @@ struct FilePreviewSheet: View {
                             .scaledToFit()
                             .padding(6)
                     } else {
-                        VStack(spacing: 8) {
+                        VStack(spacing: 10) {
                             DFIcon("exclamationmark.triangle", size: 24)
                                 .foregroundStyle(theme.colors.warning)
                             DFText(error.isEmpty ? "无法预览" : error, scale: .caption)
                                 .dfTextViewStyle(.secondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 16)
+                            DFButton("重试") { Task { await load() } }
+                                .dfButtonStyle(.outlined)
                         }
                     }
                 }
@@ -307,10 +310,22 @@ struct FilePreviewSheet: View {
             image = UIImage(data: data)
             if image == nil { error = "服务端返回的不是图片" }
         } catch {
-            self.error = pgMessage(error)
+            self.error = Self.previewErrorText(error)
             image = nil
         }
         loading = false
+    }
+
+    /// 把 HTTP 状态码翻成能看懂的原因，便于判断是文件没了还是服务端缺转换组件
+    private static func previewErrorText(_ e: Error) -> String {
+        guard let apiErr = e as? APIError else { return e.localizedDescription }
+        switch apiErr.status {
+        case 401, 403: return "登录已失效，请重新登录后再预览"
+        case 404: return "文件不存在或已被删除"
+        case 410: return "源文件已清理，无法预览"
+        case 415: return "服务端生成预览失败（PDF 需要 poppler-utils，Office 文档需要先装 LibreOffice 转换组件）"
+        default: return apiErr.message.isEmpty ? "预览失败（HTTP \(apiErr.status)）" : apiErr.message
+        }
     }
 
     private func saveToAlbum() {
