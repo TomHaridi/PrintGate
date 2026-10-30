@@ -78,7 +78,9 @@ workflows:
 
       - name: 编译（Release，未签名）
         script: |
-          set -euo pipefail
+          set -uo pipefail
+          mkdir -p /tmp/xcodebuild_logs
+          set +e
           xcodebuild \
             -project PrintGate.xcodeproj \
             -scheme "$SCHEME" \
@@ -87,7 +89,17 @@ workflows:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
-            build
+            build 2>&1 | tee /tmp/xcodebuild_logs/build.log
+          RC=${PIPESTATUS[0]}
+          set -e
+          echo "xcodebuild 退出码 = $RC"
+          # 编译失败时把错误直接打进日志，省得去翻 artifact
+          if [ "$RC" -ne 0 ]; then
+            echo "=========== 编译错误摘要 ==========="
+            grep -E "error:|fatal error:|warning: .*will be an error" /tmp/xcodebuild_logs/build.log | sort -u | head -40
+            echo "==================================="
+          fi
+          exit $RC
 
       - name: 打包未签名 IPA（文件名带版本号）
         script: |

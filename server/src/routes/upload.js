@@ -30,7 +30,9 @@ function extOf(name) {
 // 这里按同样规则列出，避免绕过分片入口塞进别的类型。
 const ALLOWED = new Set([
   '.pdf', '.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tif', '.tiff',
-  '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp', '.rtf', '.txt'
+  '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp', '.rtf', '.txt',
+  // 与 print.js 的 VIDEO_EXT 保持一致：视频只收不印
+  '.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm'
 ]);
 
 function sessDir(id) {

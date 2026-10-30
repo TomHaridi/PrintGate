@@ -62,7 +62,10 @@ async function pdfToImages(pdfPath, outDir, dpi = 150) {
 const IMAGE_EXT = ['.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tif', '.tiff', '.webp', '.heic', '.heif'];
 const DOC_EXT = ['.pdf'];
 const OFFICE_EXT = ['.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.odt', '.ods', '.odp', '.rtf', '.txt'];
-const ALLOWED = [...DOC_EXT, ...IMAGE_EXT, ...OFFICE_EXT];
+// 视频只收不印：允许上传/留档，但刻意不并入 IMAGE_EXT，
+// 这样预览和打印逻辑不会把视频当图片去渲染。
+const VIDEO_EXT = ['.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm'];
+const ALLOWED = [...DOC_EXT, ...IMAGE_EXT, ...OFFICE_EXT, ...VIDEO_EXT];
 
 // multipart 的 filename 由 busboy 按 latin1 解码，中文会变成乱码（æµè¯…）。
 // 这里回转一次 UTF-8 并校验，取不到合法结果时保留原值。
