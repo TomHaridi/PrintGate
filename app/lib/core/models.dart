@@ -1,5 +1,4 @@
-/// 服务端返回的实体。字段名与 /api/mp/* 的 JSON 一致，少做一层映射，
-/// 后端改名时这里会立刻报错，比静默取不到值好排查。
+/// 服务端实体（字段名与 /api/mp/* 的 JSON 一致，少做一层映射）
 class PgUser {
   PgUser({
     required this.id,
@@ -9,6 +8,11 @@ class PgUser {
     required this.status,
     required this.phone,
     required this.avatar,
+    required this.wechatId,
+    required this.realName,
+    required this.applyNote,
+    required this.createdAt,
+    required this.lastLogin,
   });
 
   final int id;
@@ -18,13 +22,41 @@ class PgUser {
   final String status;
   final String phone;
   final String avatar;
+  final String wechatId;
+  final String realName;
+  final String applyNote;
+  final String createdAt;
+  final String lastLogin;
 
   bool get isAdmin => role == 'admin';
   bool get approved => status == 'approved';
   bool get pending => status == 'pending';
   bool get blocked => status == 'blocked';
 
-  String get displayName => nickname.isNotEmpty ? nickname : (username.isNotEmpty ? username : '未命名用户');
+  String get displayName {
+    if (nickname.isNotEmpty) return nickname;
+    if (username.isNotEmpty) return username;
+    if (realName.isNotEmpty) return realName;
+    return '未命名用户';
+  }
+
+  /// 资料是否填过（微信号/手机/真实姓名任一）
+  bool get profileDone => wechatId.isNotEmpty || phone.isNotEmpty || realName.isNotEmpty;
+
+  static PgUser empty() => PgUser(
+        id: 0,
+        nickname: '',
+        username: '',
+        role: 'user',
+        status: '',
+        phone: '',
+        avatar: '',
+        wechatId: '',
+        realName: '',
+        applyNote: '',
+        createdAt: '',
+        lastLogin: '',
+      );
 
   static PgUser fromJson(Map<String, dynamic> j) => PgUser(
         id: _int(j['id']),
@@ -34,6 +66,11 @@ class PgUser {
         status: _str(j['status']),
         phone: _str(j['phone']),
         avatar: _str(j['avatar']),
+        wechatId: _str(j['wechat_id']),
+        realName: _str(j['real_name']),
+        applyNote: _str(j['apply_note']),
+        createdAt: _str(j['created_at']),
+        lastLogin: _str(j['last_login']),
       );
 }
 
@@ -59,13 +96,6 @@ class PgFileItem {
 
   bool get isImage => const ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'heic', 'heif'].contains(ext);
 
-  String get sizeText {
-    if (size <= 0) return '—';
-    if (size < 1024) return '$size B';
-    if (size < 1024 * 1024) return '${(size / 1024).toStringAsFixed(0)} KB';
-    return '${(size / 1024 / 1024).toStringAsFixed(1)} MB';
-  }
-
   static PgFileItem fromJson(Map<String, dynamic> j) => PgFileItem(
         id: _int(j['id']),
         filename: _str(j['filename']),
@@ -84,7 +114,11 @@ class PgTask {
     required this.copies,
     required this.pages,
     required this.createdAt,
-    required this.message,
+    required this.error,
+    required this.options,
+    required this.fileAvailable,
+    required this.nickname,
+    required this.size,
   });
 
   final int id;
@@ -94,46 +128,35 @@ class PgTask {
   final int copies;
   final int pages;
   final String createdAt;
-  final String message;
-
-  /// 状态文案与配色跟小程序/管理后台保持一致
-  String get statusText {
-    switch (status) {
-      case 'pending':
-        return '待审批';
-      case 'queued':
-        return '排队中';
-      case 'printing':
-        return '打印中';
-      case 'done':
-        return '已完成';
-      case 'failed':
-        return '失败';
-      case 'canceled':
-        return '已取消';
-      default:
-        return status.isEmpty ? '未知' : status;
-    }
-  }
+  final String error;
+  final Map<String, dynamic> options;
+  final bool fileAvailable;
+  final String nickname;
+  final int size;
 
   bool get canCancel => status == 'pending';
+  bool get hasError => error.isNotEmpty;
 
-  static PgTask fromJson(Map<String, dynamic> j) {
-    // publicTask 里文件名可能挂在 file 子对象上，两处都兼容
-    final fileObj = j['file'];
-    var name = _str(j['filename']);
-    if (name.isEmpty && fileObj is Map) name = _str(fileObj['filename']);
-    return PgTask(
-      id: _int(j['id']),
-      filename: name,
-      printer: _str(j['printer']),
-      status: _str(j['status']),
-      copies: _int(j['copies']) == 0 ? 1 : _int(j['copies']),
-      pages: _int(j['pages']),
-      createdAt: _str(j['created_at']),
-      message: _str(j['message']),
-    );
+  /// 源文件已被清理时，列表里要显式标出来，否则用户以为还能重打
+  String get displayName {
+    final base = filename.isEmpty ? '未命名文件' : filename;
+    return fileAvailable ? base : '$base（源文件已清理）';
   }
+
+  static PgTask fromJson(Map<String, dynamic> j) => PgTask(
+        id: _int(j['id']),
+        filename: _str(j['filename']),
+        printer: _str(j['printer']),
+        status: _str(j['status']),
+        copies: _int(j['copies']) == 0 ? 1 : _int(j['copies']),
+        pages: _int(j['pages']),
+        createdAt: _str(j['created_at']),
+        error: _str(j['error']),
+        options: j['options'] is Map ? Map<String, dynamic>.from(j['options'] as Map) : <String, dynamic>{},
+        fileAvailable: j['file_available'] != false,
+        nickname: _str(j['nickname']),
+        size: _int(j['size']),
+      );
 }
 
 class PgPrinter {
@@ -144,6 +167,7 @@ class PgPrinter {
     required this.info,
     required this.location,
     required this.accepting,
+    required this.model,
   });
 
   final String name;
@@ -152,22 +176,7 @@ class PgPrinter {
   final String info;
   final String location;
   final bool accepting;
-
-  bool get usable => state == 'idle' || state == 'processing';
-
-  String get stateText {
-    if (!accepting) return '已停用';
-    switch (state) {
-      case 'idle':
-        return '就绪';
-      case 'processing':
-        return '打印中';
-      case 'stopped':
-        return '已暂停';
-      default:
-        return state.isEmpty ? '未知' : state;
-    }
-  }
+  final String model;
 
   static PgPrinter fromJson(Map<String, dynamic> j) => PgPrinter(
         name: _str(j['name']),
@@ -176,6 +185,7 @@ class PgPrinter {
         info: _str(j['info']),
         location: _str(j['location']),
         accepting: j['accepting'] != false,
+        model: _str(j['model']),
       );
 }
 

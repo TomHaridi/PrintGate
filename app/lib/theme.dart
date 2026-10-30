@@ -1,19 +1,49 @@
 import 'package:flutter/material.dart';
 
-/// 品牌色与小程序的 H5 版一致（server/mobile/app.css 的 --pg-primary）
-const Color pgPrimary = Color(0xFF0C8B80);
-const Color pgPrimaryDark = Color(0xFF076D64);
-const Color pgPrimarySoft = Color(0xFFE7F5F3);
+/// 品牌色与小程序 H5 一致，主色可被用户改（我的 → 主题色）
+const String kDefaultPrimary = '#0C8B80';
+
+const Map<String, String> kPrimaryPresets = {
+  '#0C8B80': '青绿',
+  '#2F6FED': '海蓝',
+  '#00A9A5': '碧蓝',
+  '#7C4DFF': '罗兰紫',
+  '#F5793B': '暖橙',
+  '#E4446B': '玫红',
+  '#37474F': '石墨',
+};
+
 const Color pgDanger = Color(0xFFC0392B);
 const Color pgWarn = Color(0xFFB26A00);
 
-ThemeData buildTheme(Brightness brightness) {
+bool isHexColor(String? v) => RegExp(r'^#[0-9a-fA-F]{6}$').hasMatch(v ?? '');
+
+Color hexColor(String hex) {
+  final v = isHexColor(hex) ? hex : kDefaultPrimary;
+  return Color(int.parse('FF${v.substring(1)}', radix: 16));
+}
+
+String colorHex(Color c) {
+  String two(double v) => (v * 255).round().clamp(0, 255).toRadixString(16).padLeft(2, '0');
+  return '#${two(c.r)}${two(c.g)}${two(c.b)}'.toUpperCase();
+}
+
+Color mixHex(Color a, Color target, double ratio) => Color.lerp(a, target, ratio)!;
+
+/// 相对亮度（WCAG）：决定主色上的文字用白还是深色
+double luminanceOf(Color c) {
+  double f(double v) => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) * ((v + 0.055) / 1.055) * 0.947;
+  return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b);
+}
+
+Color onPrimaryOf(Color c) => luminanceOf(c) > 0.42 ? const Color(0xFF12262B) : Colors.white;
+
+ThemeData buildTheme(Color primaryHex, Brightness brightness) {
   final dark = brightness == Brightness.dark;
-  final scheme = ColorScheme.fromSeed(
-    seedColor: pgPrimary,
-    brightness: brightness,
-  ).copyWith(
-    primary: dark ? const Color(0xFF4FD1C5) : pgPrimary,
+  final main = dark ? mixHex(primaryHex, Colors.white, 0.14) : primaryHex;
+  final scheme = ColorScheme.fromSeed(seedColor: primaryHex, brightness: brightness).copyWith(
+    primary: main,
+    onPrimary: onPrimaryOf(main),
     surface: dark ? const Color(0xFF16201E) : Colors.white,
   );
 
@@ -37,18 +67,9 @@ ThemeData buildTheme(Brightness brightness) {
       filled: true,
       fillColor: dark ? const Color(0xFF16201E) : Colors.white,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: dark ? const Color(0xFF26332F) : const Color(0xFFE6ECEB)),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: dark ? const Color(0xFF26332F) : const Color(0xFFE6ECEB)),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide(color: scheme.primary, width: 1.6),
-      ),
+      border: _inputBorder(dark, null),
+      enabledBorder: _inputBorder(dark, null),
+      focusedBorder: _inputBorder(dark, scheme.primary),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
@@ -72,20 +93,41 @@ ThemeData buildTheme(Brightness brightness) {
       thickness: 1,
       space: 1,
     ),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: dark ? const Color(0xFF16201E) : Colors.white,
+      selectedItemColor: main,
+      unselectedItemColor: const Color(0xFF9AA8AE),
+      type: BottomNavigationBarType.fixed,
+      showUnselectedLabels: true,
+    ),
   );
 }
 
-/// 卡片统一用这个，省得每处重复写圆角 + 边框
+OutlineInputBorder _inputBorder(bool dark, Color? focus) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(
+        color: focus ?? (dark ? const Color(0xFF26332F) : const Color(0xFFE6ECEB)),
+        width: focus == null ? 1 : 1.6,
+      ),
+    );
+
+/// 卡片统一外观
 class PgCard extends StatelessWidget {
-  const PgCard({super.key, required this.child, this.padding = const EdgeInsets.all(16)});
+  const PgCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.onTap,
+  });
 
   final Widget child;
   final EdgeInsets padding;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
+    final body = Container(
       padding: padding,
       decoration: BoxDecoration(
         color: dark ? const Color(0xFF16201E) : Colors.white,
@@ -94,24 +136,50 @@ class PgCard extends StatelessWidget {
       ),
       child: child,
     );
+    if (onTap == null) return body;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: body,
+    );
   }
 }
 
-/// 任务状态 → 颜色（涨红跌绿那套是行情，这里是状态语义：绿=好，橙=等，红=坏）
-Color statusColor(String status) {
-  switch (status) {
-    case 'done':
+/// 状态色：绿=好、橙=等、红=坏、灰=中性
+Color statusColor(String kind) {
+  switch (kind) {
+    case 'success':
       return const Color(0xFF1E8E3E);
-    case 'printing':
-    case 'queued':
-      return pgPrimary;
-    case 'pending':
+    case 'primary':
+      return const Color(0xFF0C8B80);
+    case 'info':
+      return const Color(0xFF2F6FED);
+    case 'warning':
       return pgWarn;
-    case 'failed':
+    case 'danger':
       return pgDanger;
-    case 'canceled':
-      return const Color(0xFF8A9C9A);
     default:
       return const Color(0xFF8A9C9A);
+  }
+}
+
+/// 状态标签
+class StatusTag extends StatelessWidget {
+  const StatusTag({super.key, required this.text, required this.kind});
+
+  final String text;
+  final String kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = statusColor(kind);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: c.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(text, style: TextStyle(fontSize: 12, color: c, fontWeight: FontWeight.w600)),
+    );
   }
 }

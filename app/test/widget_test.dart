@@ -4,15 +4,18 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:printgate/core/app_state.dart';
+import 'package:printgate/core/store.dart';
 import 'package:printgate/main.dart';
 
 void main() {
   testWidgets('没配服务器 → 先进地址页', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues(<String, Object>{});
-    await tester.pumpWidget(const PrintGateApp());
+    await Store.init();
+    await tester.pumpWidget(PrintGateApp(ctl: AppCtl()));
     await tester.pump();
 
     expect(find.text('PrintGate'), findsWidgets);
-    expect(find.text('连接服务器'), findsOneWidget);
+    expect(find.text('填写服务器地址'), findsOneWidget);
   });
 }

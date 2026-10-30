@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 
 import '../core/api.dart';
+import '../core/app_state.dart';
 import '../core/models.dart';
-import '../core/store.dart';
+import '../widgets/theme_sheet.dart';
+import 'admin/admin_home.dart';
 import 'files_tab.dart';
 import 'history_tab.dart';
-import 'login_page.dart';
 import 'me_tab.dart';
 import 'print_tab.dart';
 
-/// 主界面：底部四个 Tab，与 H5 版一致（打印 / 文件 / 记录 / 我的）
+/// 主界面：打印 / 文件 / 记录 / 我的（与小程序 tabBar 一致）
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -21,17 +22,16 @@ class _HomePageState extends State<HomePage> {
   int _index = 0;
   bool _loading = true;
   String _error = '';
-  MeResult? _me;
   List<PgPrinter> _printers = const [];
 
-  /// 「文件」页选中后，自动切到「打印」页 —— 用一个 ValueNotifier 在两个 Tab 之间传
+  /// 「文件」页选中后自动切到「打印」页：用一个 ValueNotifier 在两页之间传
   final ValueNotifier<PgFileItem?> _selected = ValueNotifier<PgFileItem?>(null);
   final GlobalKey<HistoryTabState> _historyKey = GlobalKey<HistoryTabState>();
 
   @override
   void initState() {
     super.initState();
-    _load();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrap());
   }
 
   @override
@@ -40,39 +40,26 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
-  Future<void> _load() async {
+  Future<void> _bootstrap() async {
+    final ctl = AppScope.read(context);
     if (mounted) {
       setState(() {
         _loading = true;
         _error = '';
       });
     }
-    final api = Api();
     try {
-      final me = await api.me();
-      final printers = await api.printers();
+      await ctl.refreshUser();
+      final p = await Api().printers();
       if (!mounted) return;
       setState(() {
-        _me = me;
-        _printers = printers;
+        _printers = p.list;
         _loading = false;
       });
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.unauthorized) {
-        await Store.signOut();
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const LoginPage()));
-        return;
-      }
       setState(() {
         _error = e.message;
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _error = '$e';
         _loading = false;
       });
     }
@@ -90,22 +77,22 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final me = _me;
+    final ctl = AppScope.of(context);
+
     final body = _loading
         ? const Center(child: CircularProgressIndicator())
         : IndexedStack(
             index: _index,
             children: [
               PrintTab(
-                me: me,
                 printers: _printers,
                 selected: _selected,
-                onRefreshPrinters: _load,
+                onRefreshPrinters: _bootstrap,
                 onPrinted: _afterPrinted,
               ),
-              FilesTab(selected: _selected, onUse: _useFile),
+              FilesTab(selected: _selected, onUse: _useFile, onUpload: () => setState(() => _index = 0)),
               HistoryTab(key: _historyKey),
-              MeTab(me: me, onRefresh: _load),
+              MeTab(onRefreshAll: _bootstrap),
             ],
           );
 
@@ -114,27 +101,34 @@ class _HomePageState extends State<HomePage> {
         title: Text(_title()),
         actions: [
           if (_index == 0)
+            IconButton(tooltip: '刷新', onPressed: _loading ? null : _bootstrap, icon: const Icon(Icons.refresh_rounded)),
+          if (ctl.isAdmin)
             IconButton(
-              tooltip: '刷新',
-              onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh_rounded),
+              tooltip: '管理台',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AdminHomePage())),
+              icon: const Icon(Icons.admin_panel_settings_outlined),
             ),
+          IconButton(
+            tooltip: '外观',
+            onPressed: () => ThemeSheet.show(context),
+            icon: const Icon(Icons.palette_outlined),
+          ),
         ],
       ),
       body: _error.isNotEmpty && _index == 0
-          ? _ErrorView(message: _error, onRetry: _load)
+          ? _ErrorView(message: _error, onRetry: _bootstrap)
           : body,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) {
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _index,
+        onTap: (i) {
           setState(() => _index = i);
           if (i == 2) _historyKey.currentState?.reload();
         },
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.print_outlined), selectedIcon: Icon(Icons.print_rounded), label: '打印'),
-          NavigationDestination(icon: Icon(Icons.folder_outlined), selectedIcon: Icon(Icons.folder_rounded), label: '文件'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long_rounded), label: '记录'),
-          NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person_rounded), label: '我的'),
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.print_outlined), activeIcon: Icon(Icons.print_rounded), label: '打印'),
+          BottomNavigationBarItem(icon: Icon(Icons.folder_outlined), activeIcon: Icon(Icons.folder_rounded), label: '文件'),
+          BottomNavigationBarItem(icon: Icon(Icons.receipt_long_outlined), activeIcon: Icon(Icons.receipt_long_rounded), label: '记录'),
+          BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person_rounded), label: '我的'),
         ],
       ),
     );

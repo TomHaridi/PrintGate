@@ -8,38 +8,40 @@ import 'models.dart';
 import 'store.dart';
 
 class ApiException implements Exception {
-  ApiException(this.message, {this.status = 0});
+  ApiException(this.message, {this.status = 0, this.code = ''});
 
   final String message;
   final int status;
+  final String code;
 
-  /// 令牌失效（过期 / 被踢 / 用户被删）——调用方据此回登录页
   bool get unauthorized => status == 401 || status == 403;
+  bool get notApproved => code == 'NOT_APPROVED';
 
   @override
   String toString() => message;
 }
 
-/// 服务端返回体：/api/mp/me 同时带 user 与 config
+/// `/api/mp/me` 一起返回的用户与配置
 class MeResult {
   MeResult(this.user, this.config);
 
   final PgUser user;
   final Map<String, dynamic> config;
 
-  int get maxCopies => _intOf(config['maxCopies'], 99);
-  int get maxFileMB => _intOf(config['maxFileMB'], 20);
+  int get maxCopies => _int(config['maxCopies'], 99);
+  int get maxFileMB => _int(config['maxFileMB'], 20);
+  int get maxPages => _int(config['maxPages'], 50);
   bool get approveEachJob => config['approveEachJob'] == true;
   bool get advancedPrint => config['advancedPrint'] != false;
 
-  static int _intOf(Object? v, int fallback) {
+  static int _int(Object? v, int fallback) {
     if (v is int) return v;
     if (v is num) return v.toInt();
     return int.tryParse('${v ?? ''}') ?? fallback;
   }
 }
 
-/// 所有请求都走这里：相对路径 + Bearer 令牌，与小程序端是同一套接口。
+/// 与小程序 `services/api.js` 一一对应的接口集合。后端零改动。
 class Api {
   Api({String? baseUrl, String? token})
       : baseUrl = (baseUrl ?? Store.baseUrl).replaceAll(RegExp(r'/+$'), ''),
@@ -48,8 +50,9 @@ class Api {
   final String baseUrl;
   final String token;
 
-  static const _timeout = Duration(seconds: 20);
-  static const _uploadTimeout = Duration(minutes: 3);
+  static const _timeout = Duration(seconds: 30);
+  static const _uploadTimeout = Duration(minutes: 5);
+  static const chunkLimit = 8 * 1024 * 1024;
 
   Map<String, String> get authHeaders => {
         'Accept': 'application/json',
@@ -61,12 +64,12 @@ class Api {
     if (query == null || query.isEmpty) return uri;
     final q = <String, String>{};
     query.forEach((k, v) {
-      if (v != null) q[k] = '$v';
+      if (v != null && '$v'.isNotEmpty) q[k] = '$v';
     });
-    return uri.replace(queryParameters: q);
+    return q.isEmpty ? uri : uri.replace(queryParameters: q);
   }
 
-  // ---------- 基础请求 ----------
+  // ---------- 基础 ----------
   Future<Map<String, dynamic>> _send(
     String method,
     String path, {
@@ -108,7 +111,6 @@ class Api {
     } on http.ClientException catch (e) {
       throw ApiException('网络异常：${e.message}');
     }
-
     return _parse(res);
   }
 
@@ -119,57 +121,78 @@ class Api {
       try {
         final decoded = jsonDecode(text);
         if (decoded is Map<String, dynamic>) data = decoded;
-      } catch (_) {
-        // 非 JSON（网关错误页 / 空响应）
-      }
+      } catch (_) {}
     }
     final ok = data['ok'] != false && res.statusCode < 400;
     if (!ok) {
-      final msg = data['msg']?.toString();
       throw ApiException(
-        (msg != null && msg.isNotEmpty) ? msg : '请求失败（HTTP ${res.statusCode}）',
+        (data['msg']?.toString().isNotEmpty ?? false) ? data['msg'].toString() : '请求失败（HTTP ${res.statusCode}）',
         status: res.statusCode,
+        code: data['code']?.toString() ?? '',
       );
     }
     return data;
   }
 
-  // ---------- 探活 ----------
-  /// 地址页「测试连接」用：/api/health 是公开接口，能确认对面确实是 PrintGate
+  // ---------- 探活 / 版本 ----------
   Future<Map<String, dynamic>> health() => _send('GET', '/api/health');
-
   Future<Map<String, dynamic>> serverVersion() => _send('GET', '/api/mp/version');
 
   // ---------- 会话 ----------
-  /// 账号密码登录：返回的令牌就是小程序令牌（scope=miniapp），能直接调 /api/mp/*
   Future<Map<String, dynamic>> login(String username, String password) =>
       _send('POST', '/api/auth/account/login', body: {'username': username, 'password': password});
 
   Future<MeResult> me() async {
     final d = await _send('GET', '/api/mp/me');
-    final user = d['user'];
-    final config = d['config'];
     return MeResult(
-      PgUser.fromJson(user is Map ? Map<String, dynamic>.from(user) : const {}),
-      config is Map ? Map<String, dynamic>.from(config) : const {},
+      PgUser.fromJson(_map(d['user'])),
+      _map(d['config']),
     );
   }
 
-  Future<void> changePassword(String oldPassword, String newPassword) =>
-      _send('POST', '/api/auth/account/password', body: {
-        'oldPassword': oldPassword,
-        'newPassword': newPassword,
-      });
+  Future<void> changePassword(String oldPassword, String newPassword) => _send(
+        'POST',
+        '/api/auth/account/password',
+        body: {'oldPassword': oldPassword, 'newPassword': newPassword},
+      );
+
+  /// 保存资料（昵称必填，其余可空）
+  Future<PgUser> saveProfile(Map<String, Object?> profile) async {
+    final d = await _send('PUT', '/api/mp/profile', body: profile);
+    return PgUser.fromJson(_map(d['user']));
+  }
+
+  Future<PgUser> uploadAvatar(String filePath) async {
+    final req = http.MultipartRequest('POST', _u('/api/mp/avatar'));
+    req.headers.addAll(authHeaders);
+    req.files.add(await http.MultipartFile.fromPath('avatar', filePath, filename: 'avatar.jpg'));
+    final res = await http.Response.fromStream(await req.send().timeout(_uploadTimeout));
+    final d = _parse(res);
+    final u = d['user'];
+    return u is Map ? PgUser.fromJson(Map<String, dynamic>.from(u)) : PgUser.empty();
+  }
+
+  // ---------- 绑定 / 扫码 ----------
+  Future<Map<String, dynamic>> bindAdmin(String bindToken) =>
+      _send('POST', '/api/mp/bind', body: {'token': bindToken});
+
+  Future<Map<String, dynamic>> bindUser(String ticket) =>
+      _send('POST', '/api/mp/bind-user', body: {'ticket': ticket});
+
+  Future<void> qrScan(String ticket) => _send('POST', '/api/mp/qr/scan', body: {'ticket': ticket});
+
+  Future<void> qrConfirm(String ticket) => _send('POST', '/api/mp/qr/confirm', body: {'ticket': ticket});
 
   // ---------- 打印机 ----------
-  Future<List<PgPrinter>> printers() async {
+  Future<({List<PgPrinter> list, String def})> printers() async {
     final d = await _send('GET', '/api/mp/printers');
     final list = d['printers'];
-    if (list is! List) return const [];
-    return list
-        .whereType<Map>()
-        .map((e) => PgPrinter.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
+    return (
+      list: list is List
+          ? list.whereType<Map>().map((e) => PgPrinter.fromJson(Map<String, dynamic>.from(e))).toList()
+          : <PgPrinter>[],
+      def: d['default']?.toString() ?? '',
+    );
   }
 
   // ---------- 文件 ----------
@@ -177,69 +200,227 @@ class Api {
     final d = await _send('GET', '/api/mp/files');
     final list = d['files'];
     if (list is! List) return const [];
-    return list
-        .whereType<Map>()
-        .map((e) => PgFileItem.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
+    return list.whereType<Map>().map((e) => PgFileItem.fromJson(Map<String, dynamic>.from(e))).toList();
   }
 
   Future<void> deleteFile(int id) => _send('DELETE', '/api/mp/files/$id');
 
-  /// 上传单个文件。filename 一定要带：手机给的临时名是随机串，
-  /// 不带的话打印记录里就是 tmp_xxxx，用户根本认不出自己传了什么。
-  Future<PgFileItem> upload(String filePath, String filename) async {
+  /// 上传：≤8MB 直传，超过走分片（与小程序同一套阈值，服务端接口相同）
+  Future<PgFileItem> upload(String path, String filename, {void Function(int)? onProgress}) async {
+    final file = File(path);
+    final size = await file.length();
+    if (size > chunkLimit) return _uploadChunked(file, filename, size, onProgress);
+    return _uploadDirect(file, filename, onProgress);
+  }
+
+  Future<PgFileItem> _uploadDirect(File file, String filename, void Function(int)? onProgress) async {
     if (baseUrl.isEmpty) throw ApiException('还没设置服务器地址');
     final req = http.MultipartRequest('POST', _u('/api/mp/files'));
     req.headers.addAll(authHeaders);
     req.fields['filename'] = filename;
-    req.files.add(await http.MultipartFile.fromPath('file', filePath, filename: filename));
+    req.files.add(await http.MultipartFile.fromPath('file', file.path, filename: filename));
 
     http.Response res;
     try {
       final streamed = await req.send().timeout(_uploadTimeout);
+      onProgress?.call(100);
       res = await http.Response.fromStream(streamed);
     } on SocketException {
       throw ApiException('上传失败：连不上服务器');
     } on TimeoutException {
-      throw ApiException('上传超时，文件可能太大，试试压缩后再传');
+      throw ApiException('上传超时，文件可能太大');
     }
-
     final d = _parse(res);
-    final f = d['file'];
-    if (f is! Map) throw ApiException('服务端没返回文件信息');
-    return PgFileItem.fromJson(Map<String, dynamic>.from(f));
+    return _fileOf(d);
   }
 
-  /// 多张图片 → 一份多页 PDF（每张一页），打印记录里是一条「N 页」文档
-  Future<PgFileItem> mergeImages(List<int> ids, String? filename) async {
-    final d = await _send('POST', '/api/mp/files/merge', body: {
-      'ids': ids,
-      if (filename != null && filename.isNotEmpty) 'filename': filename,
+  Future<PgFileItem> _uploadChunked(File file, String filename, int size, void Function(int)? onProgress) async {
+    final init = await _send('POST', '/api/mp/upload/init', body: {
+      'filename': filename,
+      'size': size,
+      'mime': _mimeOf(filename),
     });
-    final f = d['file'];
-    if (f is! Map) throw ApiException('服务端没返回文件信息');
-    return PgFileItem.fromJson(Map<String, dynamic>.from(f));
+    final uploadId = init['uploadId']?.toString() ?? '';
+    final chunkSize = (init['chunkSize'] as num?)?.toInt() ?? 4 * 1024 * 1024;
+    final total = (init['total'] as num?)?.toInt() ?? 1;
+    if (uploadId.isEmpty) throw ApiException('分片上传初始化失败');
+
+    final raf = await file.open();
+    try {
+      for (var i = 0; i < total; i++) {
+        final start = i * chunkSize;
+        final len = (size - start) < chunkSize ? (size - start) : chunkSize;
+        await raf.setPosition(start);
+        final bytes = await raf.read(len);
+        final req = http.MultipartRequest('POST', _u('/api/mp/upload/chunk'));
+        req.headers.addAll(authHeaders);
+        req.fields['uploadId'] = uploadId;
+        req.fields['index'] = '$i';
+        req.files.add(http.MultipartFile.fromBytes('chunk', bytes, filename: 'chunk.part'));
+        final res = await http.Response.fromStream(await req.send().timeout(_uploadTimeout));
+        _parse(res);
+        onProgress?.call(((i + 1) / total * 100).round());
+      }
+    } catch (e) {
+      // 失败要把服务端会话清掉，否则临时目录会堆垃圾
+      try {
+        await _send('DELETE', '/api/mp/upload/$uploadId');
+      } catch (_) {}
+      rethrow;
+    } finally {
+      await raf.close();
+    }
+
+    final done = await _send('POST', '/api/mp/upload/complete', body: {'uploadId': uploadId});
+    return _fileOf(done);
+  }
+
+  Future<PgFileItem> mergeImages(List<int> ids, String filename) async {
+    final d = await _send('POST', '/api/mp/files/merge', body: {'ids': ids, 'filename': filename});
+    return _fileOf(d);
   }
 
   String previewUrl(int fileId, {int page = 1}) => '$baseUrl/api/mp/files/$fileId/preview?page=$page';
 
+  /// 下载预览图到本地临时文件（多页 PDF 靠 ?page=N 翻页）
+  Future<File> downloadPreview(int fileId, int page) async {
+    final res = await http.get(_u('/api/mp/files/$fileId/preview', {'page': page}), headers: authHeaders).timeout(_timeout);
+    if (res.statusCode >= 400) {
+      String msg = '预览失败（HTTP ${res.statusCode}）';
+      try {
+        final d = jsonDecode(utf8.decode(res.bodyBytes));
+        if (d is Map && d['msg'] != null) msg = d['msg'].toString();
+      } catch (_) {}
+      throw ApiException(msg, status: res.statusCode);
+    }
+    final dir = Directory.systemTemp.createTempSync('pg_prev');
+    final ext = _extFromContentType(res.headers['content-type']);
+    final f = File('${dir.path}/preview.$ext');
+    await f.writeAsBytes(res.bodyBytes);
+    return f;
+  }
+
   // ---------- 打印任务 ----------
+  Future<Map<String, dynamic>> print(int fileId, String printer, Map<String, Object?> options) =>
+      _send('POST', '/api/mp/print', body: {'fileId': fileId, 'printer': printer, 'options': options});
+
   Future<List<PgTask>> tasks() async {
     final d = await _send('GET', '/api/mp/tasks');
     final list = d['tasks'];
     if (list is! List) return const [];
-    return list
-        .whereType<Map>()
-        .map((e) => PgTask.fromJson(Map<String, dynamic>.from(e)))
-        .toList();
+    return list.whereType<Map>().map((e) => PgTask.fromJson(Map<String, dynamic>.from(e))).toList();
   }
 
-  Future<Map<String, dynamic>> print(int fileId, String printer, Map<String, Object?> options) =>
-      _send('POST', '/api/mp/print', body: {
-        'fileId': fileId,
-        'printer': printer,
-        'options': options,
-      });
-
   Future<void> cancelTask(int id) => _send('POST', '/api/mp/tasks/$id/cancel');
+
+  // ---------- 管理台 ----------
+  Future<Map<String, dynamic>> adminOverview() async {
+    final d = await _send('GET', '/api/mp/admin/overview');
+    final ov = _map(d['overview']);
+    final printers = d['printers'];
+    return {
+      'overview': ov,
+      'printers': printers is List ? printers.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : <Map<String, dynamic>>[],
+    };
+  }
+
+  Future<List<PgUser>> adminUsers({String status = 'all', String q = ''}) async {
+    final d = await _send('GET', '/api/mp/admin/users', query: {'status': status, 'q': q});
+    final list = d['users'];
+    if (list is! List) return const [];
+    return list.whereType<Map>().map((e) => PgUser.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  Future<void> adminUserAction(int id, String action) => _send('POST', '/api/mp/admin/users/$id/$action');
+
+  Future<List<PgTask>> adminTasks({String status = 'pending'}) async {
+    final d = await _send('GET', '/api/mp/admin/tasks', query: {'status': status});
+    final list = d['tasks'];
+    if (list is! List) return const [];
+    return list.whereType<Map>().map((e) => PgTask.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  Future<void> adminTaskAction(int id, String action) => _send('POST', '/api/mp/admin/tasks/$id/$action');
+
+  Future<Map<String, dynamic>> adminTaskCleanup({String? status}) =>
+      _send('POST', '/api/mp/admin/tasks/cleanup', body: status == null ? {} : {'status': status});
+
+  Future<List<PgPrinter>> adminPrinters() async {
+    final d = await _send('GET', '/api/mp/admin/printers');
+    final list = d['printers'];
+    if (list is! List) return const [];
+    return list.whereType<Map>().map((e) => PgPrinter.fromJson(Map<String, dynamic>.from(e))).toList();
+  }
+
+  Future<void> adminPrinterAction(String name, String action) =>
+      _send('POST', '/api/mp/admin/printers/${Uri.encodeComponent(name)}/$action');
+
+  Future<({Map<String, dynamic> settings, List<String> printers, List<String> schema})> adminSettings() async {
+    final d = await _send('GET', '/api/mp/admin/settings');
+    final printers = d['printers'];
+    final schema = d['schema'];
+    return (
+      settings: _map(d['settings']),
+      printers: printers is List ? printers.map((e) => '$e').toList() : <String>[],
+      schema: schema is List ? schema.map((e) => '$e').toList() : <String>[],
+    );
+  }
+
+  Future<void> adminSaveSettings(Map<String, Object?> patch) =>
+      _send('PUT', '/api/mp/admin/settings', body: patch);
+
+  // ---------- 完整后台（admin scope，需要后台管理密码换令牌） ----------
+  /// 用后台管理密码换 admin 令牌；与用户令牌分开保存，只活在本会话里
+  Future<String> adminLogin(String password) async {
+    final d = await _send('POST', '/api/auth/login', body: {'password': password});
+    final t = d['token']?.toString() ?? '';
+    if (t.isEmpty) throw ApiException('后台登录失败：没拿到令牌');
+    return t;
+  }
+
+  /// 后台全量设置（key 由后端决定，App 端动态渲染，不用跟着发版）
+  Future<Map<String, dynamic>> fullSettings() => _send('GET', '/api/settings');
+
+  Future<void> saveFullSettings(Map<String, Object?> patch) => _send('PUT', '/api/settings', body: patch);
+
+  Future<Map<String, dynamic>> officeStatus() => _send('GET', '/api/settings/office/status');
+
+  Future<Map<String, dynamic>> officeInstall() => _send('POST', '/api/settings/office/install');
+
+  // ---------- 小工具 ----------
+  PgFileItem _fileOf(Map<String, dynamic> d) {
+    final f = d['file'];
+    if (f is! Map) throw ApiException('服务端没返回文件信息');
+    return PgFileItem.fromJson(Map<String, dynamic>.from(f));
+  }
+
+  static Map<String, dynamic> _map(Object? v) =>
+      v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
+
+  static String _mimeOf(String name) {
+    switch (name.split('.').last.toLowerCase()) {
+      case 'pdf':
+        return 'application/pdf';
+      case 'png':
+        return 'image/png';
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'doc':
+        return 'application/msword';
+      case 'docx':
+        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
+  static String _extFromContentType(String? ct) {
+    final v = (ct ?? '').toLowerCase();
+    if (v.contains('jpeg') || v.contains('jpg')) return 'jpg';
+    if (v.contains('png')) return 'png';
+    if (v.contains('gif')) return 'gif';
+    if (v.contains('webp')) return 'webp';
+    return 'png';
+  }
 }

@@ -1,13 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../core/api.dart';
+import '../core/app_state.dart';
+import '../core/models.dart';
 import '../core/store.dart';
 import '../theme.dart';
+import '../widgets/server_sheet.dart';
 import 'home_page.dart';
-import 'setup_page.dart';
 
-/// 账号密码登录。用的是后台「用户」里的账号（/api/auth/account/login），
-/// 签发的令牌与小程序同权，所以直接复用 /api/mp/*。
+/// 账号密码登录（与小程序同一套 users 表，令牌同权）
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
 
@@ -29,7 +33,7 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  Future<void> _login() async {
     final u = _user.text.trim().toLowerCase();
     final p = _pass.text;
     if (u.isEmpty || p.isEmpty) {
@@ -40,65 +44,123 @@ class _LoginPageState extends State<LoginPage> {
       _busy = true;
       _error = '';
     });
+    final ctl = AppScope.read(context);
     try {
-      final api = Api(token: '');
-      final d = await api.login(u, p);
+      final d = await Api(token: '').login(u, p);
       final token = d['token']?.toString() ?? '';
       if (token.isEmpty) throw ApiException('服务端没返回登录令牌');
-      await Store.setToken(token);
+      await ctl.setToken(token);
+      final me = await ctl.refreshUser();
+      if (!mounted) return;
+      // 与小程序一致：昵称还没补的话，进首页前引导填一次（可跳过）
+      if (me != null && me.nickname.trim().isEmpty) {
+        await _askProfile(me);
+      }
       if (!mounted) return;
       Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const HomePage()));
     } catch (e) {
-      final msg = e is ApiException ? e.message : '$e';
-      setState(() => _error = msg);
+      if (!mounted) return;
+      setState(() => _error = e is ApiException ? e.message : '$e');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<void> _switchServer() async {
-    await Store.forgetServer();
-    if (!mounted) return;
-    Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => const SetupPage()));
+  Future<void> _askProfile(PgUser user) async {
+    final nick = TextEditingController(text: user.nickname);
+    String? avatarPath;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: const Text('完善资料'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () async {
+                  final picked = await ImagePicker().pickImage(source: ImageSource.gallery, imageQuality: 85);
+                  if (picked != null) setLocal(() => avatarPath = picked.path);
+                },
+                child: CircleAvatar(
+                  radius: 34,
+                  backgroundColor: Theme.of(ctx).colorScheme.primary.withValues(alpha: 0.12),
+                  backgroundImage: avatarPath != null ? FileImage(File(avatarPath!)) : null,
+                  child: avatarPath == null ? const Icon(Icons.add_a_photo_outlined) : null,
+                ),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: nick,
+                decoration: const InputDecoration(labelText: '昵称（必填）'),
+              ),
+              const SizedBox(height: 8),
+              Text('资料可以稍后在「我的」里完善', style: TextStyle(fontSize: 12, color: Theme.of(ctx).colorScheme.onSurfaceVariant)),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('跳过')),
+            TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('保存')),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    final ctl = AppScope.read(context);
+    try {
+      if (avatarPath != null) {
+        final u = await Api().uploadAvatar(avatarPath!);
+        if (u.id > 0) await ctl.applyUser(u);
+      }
+      final name = nick.text.trim();
+      if (name.isNotEmpty) {
+        final u = await Api().saveProfile({'nickname': name});
+        await ctl.applyUser(u);
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('资料保存失败：${e.message}')));
+    }
+  }
+
+  Future<void> _openServer() async {
+    await ServerSheet.show(
+      context,
+      onSaved: (_) async {
+        if (mounted) setState(() => _error = '');
+      },
+    );
+    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final ink = dark ? Colors.white : const Color(0xFF101B1A);
+    final sub = dark ? const Color(0xFF8A9C9A) : const Color(0xFF6B807E);
+
     return Scaffold(
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(24, 40, 24, 24),
+          padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Center(
-                child: Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: pgPrimarySoft,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(Icons.print_rounded, color: pgPrimary, size: 38),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(22),
+                  child: Image.asset('assets/logo.png', width: 84, height: 84, fit: BoxFit.cover),
                 ),
               ),
               const SizedBox(height: 18),
-              Text(
-                '登录 PrintGate',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: scheme.onSurface),
-              ),
-              const SizedBox(height: 24),
+              Text('登录 PrintGate', textAlign: TextAlign.center, style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: ink)),
+              const SizedBox(height: 28),
               TextField(
                 controller: _user,
                 enabled: !_busy,
                 autocorrect: false,
                 textInputAction: TextInputAction.next,
-                decoration: const InputDecoration(
-                  labelText: '用户名',
-                  prefixIcon: Icon(Icons.person_outline),
-                ),
+                decoration: const InputDecoration(labelText: '用户名', prefixIcon: Icon(Icons.person_outline)),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -106,7 +168,7 @@ class _LoginPageState extends State<LoginPage> {
                 enabled: !_busy,
                 obscureText: _obscure,
                 textInputAction: TextInputAction.done,
-                onSubmitted: (_) => _submit(),
+                onSubmitted: (_) => _login(),
                 decoration: InputDecoration(
                   labelText: '密码',
                   prefixIcon: const Icon(Icons.lock_outline),
@@ -122,28 +184,26 @@ class _LoginPageState extends State<LoginPage> {
               ],
               const SizedBox(height: 20),
               FilledButton(
-                onPressed: _busy ? null : _submit,
+                onPressed: _busy ? null : _login,
                 child: _busy
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
+                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Text('登录'),
               ),
-              const SizedBox(height: 14),
+              const SizedBox(height: 12),
               Text(
-                '没有账号？让管理员在网页后台「用户」里给你开一个。',
+                '没有账号？让管理员在网页后台「用户」里开一个。',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12.5, color: scheme.onSurfaceVariant),
+                style: TextStyle(fontSize: 12.5, color: sub),
               ),
-              const SizedBox(height: 28),
-              TextButton.icon(
-                onPressed: _busy ? null : _switchServer,
-                icon: const Icon(Icons.dns_outlined, size: 18),
-                label: Text(
-                  Store.baseUrl.isEmpty ? '设置服务器' : '服务器：${Store.baseUrl}',
-                  overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 26),
+              PgCard(
+                padding: EdgeInsets.zero,
+                child: ListTile(
+                  leading: const Icon(Icons.dns_outlined),
+                  title: const Text('服务器', style: TextStyle(fontSize: 14)),
+                  subtitle: Text(Store.baseUrl.isEmpty ? '未设置' : Store.baseUrl, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: _busy ? null : _openServer,
                 ),
               ),
             ],

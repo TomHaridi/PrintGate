@@ -62,17 +62,17 @@ void main() {
     });
 
     test('打印机列表与记录列表结构正常', () async {
-      final printers = await api.printers();
+      final r = await api.printers();
       // Windows 本机没有 CUPS，列表可能为空 —— 只验证能解析、不抛异常
-      expect(printers, isA<List>());
+      expect(r.list, isA<List>());
 
       final tasks = await api.tasks();
       expect(tasks, isA<List>());
     });
 
     test('没有打印机时提交打印要给出人话错误', () async {
-      final printers = await api.printers();
-      if (printers.isNotEmpty) {
+      final r = await api.printers();
+      if (r.list.isNotEmpty) {
         markTestSkipped('本机有打印机，跳过这条');
         return;
       }
