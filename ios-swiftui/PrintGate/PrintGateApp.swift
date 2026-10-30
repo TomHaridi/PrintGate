@@ -6,6 +6,10 @@ struct PrintGateApp: App {
     @State private var app = AppModel()
     @State private var store = Store.shared
 
+    init() {
+        CrashReporter.install()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
@@ -28,6 +32,7 @@ struct PrintGateApp: App {
 
 struct RootView: View {
     @Environment(AppModel.self) private var app
+    @State private var crashInfo: String?
 
     var body: some View {
         Group {
@@ -42,6 +47,18 @@ struct RootView: View {
         }
         .task {
             await app.bootstrap()
+            if let info = CrashReporter.lastCrash() {
+                crashInfo = info
+                CrashReporter.clear()
+            }
+        }
+        .alert("检测到上次崩溃", isPresented: Binding(
+            get: { crashInfo != nil },
+            set: { if !$0 { crashInfo = nil } }
+        )) {
+            Button("知道了", role: .cancel) {}
+        } message: {
+            Text(crashInfo ?? "")
         }
     }
 }

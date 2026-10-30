@@ -368,7 +368,7 @@ struct PrintView: View {
                             Text("\(p.name)\(p.isDefault ? "（默认）" : "")").tag(p.name)
                         }
                     }
-                    if let p = printers.first(where: { $0.name == (printer.isEmpty ? printers[0].name : printer) }) {
+                    if let p = printers.first(where: { $0.name == (printer.isEmpty ? (printers.first?.name ?? "") : printer) }) {
                         HStack(spacing: 6) {
                             StatusBadge(text: p.stateText, color: p.state.lowercased() == "idle" ? .green : .orange)
                             if !p.location.isEmpty {

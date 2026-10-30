@@ -11,7 +11,7 @@ func pgStr(_ v: Any?) -> String {
     case is NSNull, nil: return ""
     case let d as [String: Any]: return d.isEmpty ? "" : "\(d)"
     case let a as [Any]: return a.isEmpty ? "" : "\(a)"
-    default: return "\(v!)"
+    default: return "\(String(describing: v))"
     }
 }
 

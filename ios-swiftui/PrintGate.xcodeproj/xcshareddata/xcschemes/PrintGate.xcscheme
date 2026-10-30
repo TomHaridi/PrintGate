@@ -5,7 +5,7 @@
          <BuildActionEntry buildForTesting = "YES" buildForRunning = "YES" buildForProfiling = "YES" buildForArchiving = "YES" buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "000000000000000000000042"
+               BlueprintIdentifier = "000000000000000000000044"
                BuildableName = "PrintGate.app"
                BlueprintName = "PrintGate"
                ReferencedContainer = "container:PrintGate.xcodeproj">
@@ -21,7 +21,7 @@
       <BuildableProductRunnable runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "000000000000000000000042"
+            BlueprintIdentifier = "000000000000000000000044"
             BuildableName = "PrintGate.app"
             BlueprintName = "PrintGate"
             ReferencedContainer = "container:PrintGate.xcodeproj">
@@ -32,7 +32,7 @@
       <BuildableProductRunnable runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "000000000000000000000042"
+            BlueprintIdentifier = "000000000000000000000044"
             BuildableName = "PrintGate.app"
             BlueprintName = "PrintGate"
             ReferencedContainer = "container:PrintGate.xcodeproj">
