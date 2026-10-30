@@ -93,11 +93,13 @@ workflows:
           RC=${PIPESTATUS[0]}
           set -e
           echo "xcodebuild 退出码 = $RC"
-          # 编译失败时把错误直接打进日志，省得去翻 artifact
+          # 编译失败时把错误直接打进日志，并落到工作目录供 artifact 收集
           if [ "$RC" -ne 0 ]; then
             echo "=========== 编译错误摘要 ==========="
-            grep -E "error:|fatal error:|warning: .*will be an error" /tmp/xcodebuild_logs/build.log | sort -u | head -40
+            grep -E "error:|fatal error:" /tmp/xcodebuild_logs/build.log | sort -u | head -40
             echo "==================================="
+            grep -E "error:|fatal error:" /tmp/xcodebuild_logs/build.log | sort -u > build_errors.txt
+            cp /tmp/xcodebuild_logs/build.log xcodebuild_full.log
           fi
           exit $RC
 
@@ -122,3 +124,5 @@ workflows:
       - PrintGate-*-unsigned.ipa
       - build/Build/Products/Release-iphoneos/*.app
       - /tmp/xcodebuild_logs/*.log
+      - build_errors.txt
+      - xcodebuild_full.log
