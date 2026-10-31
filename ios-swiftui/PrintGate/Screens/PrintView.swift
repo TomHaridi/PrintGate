@@ -850,7 +850,7 @@ struct PrintPreviewView: View {
                 HStack(spacing: 10) {
                     DFButton("返回修改") { dismiss() }
                         .dfButtonStyle(.outlined)
-                    DFButton(busy ? "提交中…" : "确认打印") { await confirm() }
+                    DFButton(busy ? "提交中…" : "确认打印") { Task { await confirm() } }
                         .disabled(busy)
                 }
             }
