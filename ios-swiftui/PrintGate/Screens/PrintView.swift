@@ -91,6 +91,7 @@ struct PrintView: View {
 
     @State private var busy = false
     @State private var busyText = ""
+    @State private var showPreview = false
 
     private enum PhotoTarget { case invoice, front, back }
 
@@ -111,23 +112,32 @@ struct PrintView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.top, 6)
-                // 底部给固定底栏让位，避免最后一张卡片被底栏遮住
-                .padding(.bottom, 72)
-            }
-            // 用 overlay 把提交底栏绝对钉在内容区底部（Tab 栏正上方），不再依赖
-            // VStack/ScrollView 的高度分配——之前 ScrollView 按内容高度撑开把底栏
-            // 顶出屏幕，导致「开始打印」看不见。overlay 在 DFTabBar 给的确定高度
-            // frame 内钉底，绝不会被推出。
-            .overlay(alignment: .bottom) {
-                submitBar
             }
         .screenBackground()
         .dfNavigationBar(title: "打印", displayMode: .inline) {
             Button {
-                Task { await loadPrinters() }
+                Task { await tapStartPrint() }
             } label: {
-                DFIcon("arrow.clockwise", size: 18)
+                Text("开始打印")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(theme.colors.primary)
             }
+        }
+        .sheet(isPresented: $showPreview) {
+            PrintPreviewView(
+                mode: mode,
+                options: options,
+                picked: picked,
+                title: title,
+                bodyText: body_,
+                fontSize: fontSize,
+                invoices: invoices,
+                perInvoice: perInvoice,
+                idFront: idFront,
+                idBack: idBack,
+                printerName: targetPrinterName,
+                onConfirm: { await submit() }
+            )
         }
         .dfSheet(isPresented: $showLibrary) {
             FilePickerSheet { f in
@@ -506,29 +516,7 @@ struct PrintView: View {
         .padding(.top, 2)
     }
 
-    // MARK: 底部提交
-
-    private var submitBar: some View {
-        VStack(spacing: 0) {
-            Divider().opacity(0.4)
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    DFText(busy ? busyText : "\(options.copies) 份 · \(options.media) · \(options.color == "color" ? "彩色" : "黑白")", scale: .caption)
-                        .dfTextViewStyle(.secondary)
-                    DFText(targetPrinterName, scale: .bodySmall)
-                        .lineLimit(1)
-                }
-                Spacer()
-                DFButton(busy ? "处理中…" : "开始打印") {
-                    Task { await submit() }
-                }
-                .disabled(busy)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(theme.colors.surface)
-        }
-    }
+    // MARK: 底部提交（已迁移：按钮放导航栏右上角，提交前先走打印预览页）
 
     private var targetPrinterName: String {
         if !printer.isEmpty { return printer }
@@ -610,21 +598,59 @@ struct PrintView: View {
 
     // MARK: 提交
 
-    private func submit() async {
-        guard !busy else { return }
+    // MARK: 校验与入口
+
+    /// 「开始打印」按钮：先做前置校验，通过才弹出预览页。
+    private func tapStartPrint() async {
+        if let err = validate() {
+            DFToastQueue.shared.show(text: err, severity: .error)
+            return
+        }
+        showPreview = true
+    }
+
+    /// 提交前统一校验，返回首个错误文案；nil 表示可以提交。
+    private func validate() -> String? {
+        guard !printers.isEmpty, targetPrinterName != "未选择打印机" else {
+            return "请先选择打印机"
+        }
+        let ranges = Fmt.sanitizeRanges(options.ranges)
+        guard Fmt.validRanges(ranges) else {
+            return "页范围格式不对，例如 1-3,5"
+        }
+        if options.watermark.count > 40 {
+            return "水印不超过 40 个字符"
+        }
+        switch mode {
+        case .file:
+            guard picked != nil else { return "请先选择文件" }
+        case .text:
+            guard !body_.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return "先输入要打印的文字" }
+        case .invoice:
+            guard !invoices.isEmpty else { return "先添加发票图片" }
+        case .idcard:
+            guard idFront != nil || idBack != nil else { return "先选择身份证照片" }
+        }
+        return nil
+    }
+
+    // MARK: 提交
+
+    private func submit() async -> Bool {
+        guard !busy else { return false }
         let target = targetPrinterName
         guard !printers.isEmpty, target != "未选择打印机" else {
             DFToastQueue.shared.show(text: "请先选择打印机", severity: .error)
-            return
+            return false
         }
         let ranges = Fmt.sanitizeRanges(options.ranges)
         guard Fmt.validRanges(ranges) else {
             DFToastQueue.shared.show(text: "页范围格式不对，例如 1-3,5", severity: .error)
-            return
+            return false
         }
         if options.watermark.count > 40 {
             DFToastQueue.shared.show(text: "水印不超过 40 个字符", severity: .error)
-            return
+            return false
         }
 
         busy = true
@@ -648,8 +674,10 @@ struct PrintView: View {
             let msg = pgStr(res["msg"])
             DFToastQueue.shared.show(text: msg.isEmpty ? "已提交打印" : msg, severity: .success)
             resetAfterSubmit()
+            return true
         } catch {
             DFToastQueue.shared.show(text: pgMessage(error), severity: .error)
+            return false
         }
     }
 
@@ -746,5 +774,163 @@ struct FilePickerSheet: View {
                 loading = false
             }
         }
+    }
+}
+
+// MARK: - 打印预览 / 确认
+
+/// 提交前的预览与确认页：展示待打印文件首页 + 打印参数，确认后才真正提交。
+/// file 模式直接复用服务端的预览接口（previewData）；合成模式本地用 Compose 生成后取首页图。
+struct PrintPreviewView: View {
+    let mode: PrintMode
+    let options: PrintOptions
+    let picked: PgFileItem?
+    let title: String
+    let bodyText: String
+    let fontSize: Double
+    let invoices: [PickedImage]
+    let perInvoice: Int
+    let idFront: PickedImage?
+    let idBack: PickedImage?
+    let printerName: String
+    var onConfirm: () async -> Bool
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.dfTheme) private var theme
+
+    @State private var image: UIImage?
+    @State private var loading = true
+    @State private var error = ""
+    @State private var busy = false
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 12) {
+                // 预览图
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12).fill(theme.colors.surface)
+                    if loading {
+                        ProgressView()
+                    } else if let image {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .padding(6)
+                    } else {
+                        VStack(spacing: 10) {
+                            DFIcon("exclamationmark.triangle", size: 24)
+                                .foregroundStyle(theme.colors.warning)
+                            DFText(error.isEmpty ? "无法预览" : error, scale: .caption)
+                                .dfTextViewStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 16)
+                        }
+                    }
+                }
+                .frame(maxHeight: .infinity)
+
+                // 参数摘要
+                DFCard {
+                    VStack(alignment: .leading, spacing: 10) {
+                        DFText("打印参数", scale: .labelLarge)
+                        row("模式", mode.title)
+                        row("打印机", printerName)
+                        row("份数", "\(options.copies)")
+                        row("色彩", options.color == "color" ? "彩色" : "黑白")
+                        row("单双面", sidesText)
+                        row("纸张", options.media)
+                        if options.numberUp > 1 { row("每页页数", "\(options.numberUp) 页/张") }
+                        if options.pageSet != "all" { row("打印页", pageSetText) }
+                        if !options.ranges.isEmpty { row("页范围", options.ranges) }
+                        if !options.watermark.isEmpty { row("水印", options.watermark) }
+                    }
+                    .padding(4)
+                }
+
+                HStack(spacing: 10) {
+                    DFButton("返回修改") { dismiss() }
+                        .dfButtonStyle(.outlined)
+                    DFButton(busy ? "提交中…" : "确认打印") { await confirm() }
+                        .disabled(busy)
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .safeBottomPadding()
+            .screenBackground()
+            .dfNavigationBar(title: "打印预览", displayMode: .inline) {
+                DFButton("取消") { dismiss() }.dfButtonStyle(.ghost)
+            }
+            .task { await prepare() }
+        }
+    }
+
+    private func row(_ k: String, _ v: String) -> some View {
+        HStack {
+            DFText(k, scale: .caption).dfTextViewStyle(.secondary)
+            Spacer()
+            DFText(v, scale: .caption).lineLimit(1)
+        }
+    }
+
+    private var sidesText: String {
+        switch options.sides {
+        case "two-sided-long-edge": return "双面长边"
+        case "two-sided-short-edge": return "双面短边"
+        default: return "单面"
+        }
+    }
+
+    private var pageSetText: String {
+        switch options.pageSet {
+        case "odd": return "奇数页"
+        case "even": return "偶数页"
+        default: return "全部"
+        }
+    }
+
+    private func prepare() async {
+        loading = true
+        error = ""
+        do {
+            let img: UIImage?
+            switch mode {
+            case .file:
+                guard let f = picked else { throw APIError(message: "请先选择文件") }
+                let data = try await API().previewData(f.id, page: 1)
+                img = UIImage(data: data)
+            case .text:
+                let url = try Compose.text(body: bodyText, title: title, fontSize: CGFloat(fontSize), media: options.media)
+                img = UIImage(contentsOfFile: url.path)
+            case .invoice:
+                let url = try Compose.invoice(images: invoices.map(\.image), per: perInvoice, media: options.media)
+                img = UIImage(contentsOfFile: url.path)
+            case .idcard:
+                let url = try Compose.idCard(front: idFront?.image, back: idBack?.image, media: options.media)
+                img = UIImage(contentsOfFile: url.path)
+            }
+            if let img { image = img } else { error = "预览生成失败" }
+        } catch {
+            self.error = Self.previewErrorText(error)
+        }
+        loading = false
+    }
+
+    private static func previewErrorText(_ e: Error) -> String {
+        guard let apiErr = e as? APIError else { return e.localizedDescription }
+        switch apiErr.status {
+        case 401, 403: return "登录已失效，请重新登录后再预览"
+        case 404: return "文件不存在或已被删除"
+        case 410: return "源文件已清理，无法预览"
+        case 415: return "服务端生成预览失败（PDF 需 poppler-utils，Office 需先装 LibreOffice 转换组件）"
+        default: return apiErr.message.isEmpty ? "预览失败（HTTP \(apiErr.status)）" : apiErr.message
+        }
+    }
+
+    private func confirm() async {
+        busy = true
+        let ok = await onConfirm()
+        busy = false
+        if ok { dismiss() }
     }
 }
