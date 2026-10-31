@@ -96,30 +96,31 @@ struct PrintView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(spacing: 14) {
-                    // 用 AnyView 擦除每个卡片的返回类型：body 的返回类型原本是
-                    // 6 个卡片完整嵌套类型的内联（20+ 层），运行时实例化会
-                    // 在 swift_getTypeByMangledName 递归解析时栈溢出（SIGSEGV）。
-                    // 擦除后 body 只剩浅层 VStack<TupleView<AnyView...>>。
-                        AnyView(modeBar)
-                        AnyView(contentCard)
-                        AnyView(printerCard)
-                        AnyView(commonCard)
-                        AnyView(advancedCard)
-                        AnyView(historyHint)
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.top, 6)
-                    .padding(.bottom, 18)
+            ScrollView {
+                VStack(spacing: 14) {
+                // 用 AnyView 擦除每个卡片的返回类型：body 的返回类型原本是
+                // 6 个卡片完整嵌套类型的内联（20+ 层），运行时实例化会
+                // 在 swift_getTypeByMangledName 递归解析时栈溢出（SIGSEGV）。
+                // 擦除后 body 只剩浅层 VStack<TupleView<AnyView...>>。
+                    AnyView(modeBar)
+                    AnyView(contentCard)
+                    AnyView(printerCard)
+                    AnyView(commonCard)
+                    AnyView(advancedCard)
+                    AnyView(historyHint)
                 }
-                // 关键修复：ScrollView 必须限高。否则它按内容高度撑开，会把下方的
-                // 提交底栏顶到内容区之外（被外层 Tab 栏盖住），「开始打印」就看不见了。
-                // 限高后内容在内部滚动，底栏稳定贴在内容区底部（Tab 栏之上）。
-                .frame(maxHeight: .infinity)
+                .padding(.horizontal, 14)
+                .padding(.top, 6)
+                // 底部给固定底栏让位，避免最后一张卡片被底栏遮住
+                .padding(.bottom, 72)
+            }
+            // 用 overlay 把提交底栏绝对钉在内容区底部（Tab 栏正上方），不再依赖
+            // VStack/ScrollView 的高度分配——之前 ScrollView 按内容高度撑开把底栏
+            // 顶出屏幕，导致「开始打印」看不见。overlay 在 DFTabBar 给的确定高度
+            // frame 内钉底，绝不会被推出。
+            .overlay(alignment: .bottom) {
                 submitBar
-        }
+            }
         .screenBackground()
         .dfNavigationBar(title: "打印", displayMode: .inline) {
             Button {
