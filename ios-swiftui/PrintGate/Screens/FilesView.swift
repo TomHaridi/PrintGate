@@ -299,7 +299,7 @@ struct FilesView: View {
 // MARK: - 预览
 
 struct FilePreviewSheet: View {
-    var file: PgFileItem
+    @State var file: PgFileItem
     var onDelete: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -309,6 +309,7 @@ struct FilePreviewSheet: View {
     @State private var image: UIImage?
     @State private var loading = true
     @State private var error = ""
+    @State private var showPhotos = false
 
     private var pageCount: Int { max(1, file.pages) }
 
@@ -353,6 +354,8 @@ struct FilePreviewSheet: View {
                 }
 
                 HStack(spacing: 10) {
+                    DFButton("从相册导入") { showPhotos = true }
+                        .dfButtonStyle(.ghost)
                     DFButton("存到相册") { saveToAlbum() }
                         .dfButtonStyle(.ghost)
                         .disabled(image == nil)
@@ -369,6 +372,21 @@ struct FilePreviewSheet: View {
             .screenBackground()
             .dfNavigationBar(title: file.filename, displayMode: .inline) {
                 DFButton("关闭") { dismiss() }.dfButtonStyle(.ghost)
+            }
+            .onChange(of: file.id) { _, _ in
+                page = 1
+                Task { await load() }
+            }
+            .sheet(isPresented: $showPhotos) {
+                MediaPicker(
+                    allowVideo: true,
+                    selectionLimit: 9,
+                    onPick: { picked in
+                        showPhotos = false
+                        Task { await importAndPreview(picked) }
+                    },
+                    onCancel: { showPhotos = false }
+                )
             }
             .task { await load() }
         }
@@ -404,6 +422,25 @@ struct FilePreviewSheet: View {
         guard let img = image else { return }
         UIImageWriteToSavedPhotosAlbum(img, nil, nil, nil)
         DFToastQueue.shared.show(text: "已存入相册", severity: .success)
+    }
+
+    /// 从相册选媒体，逐张上传；上传完成后把预览切换到第一张，便于直接预览 / 打印。
+    private func importAndPreview(_ items: [PickedMedia]) async {
+        guard !items.isEmpty else { return }
+        do {
+            var first: PgFileItem?
+            for m in items {
+                let f = try await API().upload(data: m.data, filename: m.filename)
+                if first == nil { first = f }
+            }
+            if let first {
+                file = first
+                let msg = items.count == 1 ? "已导入 \(first.filename)" : "已上传 \(items.count) 个，已预览第一张"
+                DFToastQueue.shared.show(text: msg, severity: .success)
+            }
+        } catch {
+            DFToastQueue.shared.show(text: pgMessage(error), severity: .error)
+        }
     }
 }
 

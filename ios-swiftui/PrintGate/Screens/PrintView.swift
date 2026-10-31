@@ -87,6 +87,7 @@ struct PrintView: View {
     @State private var photoTarget: PhotoTarget = .invoice
     @State private var showPhotos = false
     @State private var showFileImport = false
+    @State private var showFilePhotos = false
 
     @State private var busy = false
     @State private var busyText = ""
@@ -113,9 +114,11 @@ struct PrintView: View {
                     .padding(.top, 6)
                     .padding(.bottom, 18)
                 }
-                // 底栏直接放在 VStack 里固定住：之前用 safeAreaInset 挂在 ScrollView 上，
-            // 和外层 Tab 栏的 safeAreaInset 嵌套后在 iOS 26 上会被顶出屏幕（打印键消失）。
-            submitBar
+                // 关键修复：ScrollView 必须限高。否则它按内容高度撑开，会把下方的
+                // 提交底栏顶到内容区之外（被外层 Tab 栏盖住），「开始打印」就看不见了。
+                // 限高后内容在内部滚动，底栏稳定贴在内容区底部（Tab 栏之上）。
+                .frame(maxHeight: .infinity)
+                submitBar
         }
         .screenBackground()
         .dfNavigationBar(title: "打印", displayMode: .inline) {
@@ -140,6 +143,17 @@ struct PrintView: View {
                     applyMedia(picked)
                 },
                 onCancel: { showPhotos = false }
+            )
+        }
+        .sheet(isPresented: $showFilePhotos) {
+            MediaPicker(
+                allowVideo: true,
+                selectionLimit: 9,
+                onPick: { picked in
+                    showFilePhotos = false
+                    Task { await importFromAlbum(picked) }
+                },
+                onCancel: { showFilePhotos = false }
             )
         }
         .fileImporter(isPresented: $showFileImport, allowedContentTypes: [.pdf, .image, .plainText, .data], allowsMultipleSelection: false) { result in
@@ -225,6 +239,11 @@ struct PrintView: View {
             HStack(spacing: 10) {
                 DFButton(picked == nil ? "从文件库选择" : "换一个文件") { showLibrary = true }
                     .dfButtonStyle(.outlined)
+                DFButton("从相册导入") { showFilePhotos = true }
+                    .dfButtonStyle(.ghost)
+                Spacer()
+            }
+            HStack(spacing: 10) {
                 DFButton("导入文件") { showFileImport = true }
                     .dfButtonStyle(.ghost)
                 Spacer()
@@ -557,6 +576,31 @@ struct PrintView: View {
             picked = f
             mode = .file
             DFToastQueue.shared.show(text: "已导入 \(f.filename)", severity: .success)
+        } catch {
+            DFToastQueue.shared.show(text: pgMessage(error), severity: .error)
+        }
+        busy = false
+    }
+
+    /// 从系统相册 / 文件选媒体，逐张上传为文件；第一张直接设为本次打印文件，
+    /// 其余进文件库，可在「文件」页选用。视频需服务端白名单更新后才收（只收不印）。
+    private func importFromAlbum(_ items: [PickedMedia]) async {
+        guard !items.isEmpty else { return }
+        busy = true
+        busyText = "上传中…"
+        do {
+            var first: PgFileItem?
+            for (i, m) in items.enumerated() {
+                busyText = "上传 \(i + 1)/\(items.count)…"
+                let f = try await API().upload(data: m.data, filename: m.filename)
+                if first == nil { first = f }
+            }
+            if let first {
+                picked = first
+                mode = .file
+                let msg = items.count == 1 ? "已选择 \(first.filename)" : "已上传 \(items.count) 个到文件库，已选 \(first.filename)"
+                DFToastQueue.shared.show(text: msg, severity: .success)
+            }
         } catch {
             DFToastQueue.shared.show(text: pgMessage(error), severity: .error)
         }
